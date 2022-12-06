@@ -47,7 +47,7 @@ public:
 
     xcb_screen_t* screen;
 
-    void    run();
+    void run();
 
     xcb_window_t create_window();
 
