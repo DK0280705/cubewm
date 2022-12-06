@@ -1,8 +1,8 @@
-#include <string>
 #include "logger.h"
 #include "server.h"
-#include <unistd.h>
 #include <getopt.h>
+#include <string>
+#include <unistd.h>
 
 int main(int argc, char* const argv[])
 {
@@ -22,9 +22,14 @@ int main(int argc, char* const argv[])
 
     Log::info("Starting cubewm...");
 
-    // Init Window Manager trough constructor
-    Server srv;
-    srv.run();
+    Server* srv = Server::init();
+    if (!srv) return 1;
+
+    try {
+        srv->run();
+    } catch (const std::exception& e) {
+        Log::error(e.what());
+    }
 
     return 0;
 }
