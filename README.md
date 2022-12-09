@@ -1,1 +1,3 @@
-DKWM - DK Window Manager
+# Cubewm - A window manager
+
+Still WIP
