@@ -8,7 +8,7 @@ add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-unused-value -Wno-m
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
 find_package(PkgConfig)
-pkg_check_modules(DEPS REQUIRED xcb xcb-xkb xcb-randr xcb-shape xcb-util xcb-cursor fmt)
+pkg_check_modules(DEPS REQUIRED xcb xcb-keysyms xcb-xkb xcb-randr xcb-shape xcb-util xcb-cursor fmt)
 
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 target_link_libraries(${PROJECT_NAME} ${DEPS_LIBRARIES})

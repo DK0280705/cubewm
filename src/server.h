@@ -3,6 +3,7 @@
 extern "C" {
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcb_keysyms.h>
 }
 
 enum XCursor : unsigned int
@@ -32,6 +33,9 @@ class Server final // kinda useless, but just for fancy.
     void _check_another_wm() const;
 
     void _load_cursors();
+    void _load_xkb();
+    void _load_shape();
+    void _load_randr();
 
 public:
     Server(const Server& s)  = delete;
@@ -42,7 +46,19 @@ public:
     static Server* init();
 
     int screen_id;
+    
+    // extensions
+    uint8_t xkb_support;
+    uint8_t xkb_base;
 
+    uint8_t shape_support;
+    uint8_t shape_base;
+
+    uint8_t randr_support;
+    uint8_t randr_base;
+
+    xcb_key_symbols_t* keysyms;
+    
     xcb_connection_t* conn;
     xcb_timestamp_t   timestamp;
     xcb_atom_t        wm_sn;

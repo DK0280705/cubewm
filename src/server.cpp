@@ -1,6 +1,6 @@
-#include "event.h"
 #include "server.h"
 #include "atoms.h"
+#include "event.h"
 #include "logger.h"
 #include <stdexcept>
 
@@ -14,6 +14,7 @@ extern "C" {
 #include <xcb/xcb_aux.h>
 #include <xcb/xcb_cursor.h>
 #include <xcb/xcb_event.h>
+#include <xcb/xcb_keysyms.h>
 #include <xcb/xkb.h>
 #include <xcb/xproto.h>
 #undef explicit
@@ -85,7 +86,7 @@ void Server::_acquire_wm_sn()
     // As i use old i3 version instead of the newer ones.
     char* atom_name = xcb_atom_name_by_screen("WM_S", screen_id);
     assert_(atom_name, "Failed to get WM_Sn atom name");
-    
+
     wm_sn_owner = xcb_generate_id(conn);
 
     xcb_intern_atom_reply_t* a_reply = xcb_intern_atom_reply(
@@ -141,16 +142,70 @@ void Server::_load_cursors()
 #undef xmacro
 }
 
+void Server::_load_xkb()
+{
+    const xcb_query_extension_reply_t* reply = xcb_get_extension_data(conn, &xcb_xkb_id);
+    xkb_support = reply->present;
+
+    if (!xkb_support) {
+        Log::error("xcb is not present on this server");
+        return;
+    }
+    xcb_xkb_use_extension(conn, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
+    xcb_xkb_select_events(conn, XCB_XKB_ID_USE_CORE_KBD,
+                          XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY |
+                              XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY,
+                          0,
+                          XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY |
+                              XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY,
+                          0xff, 0xff, NULL);
+    const uint32_t mask = XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE |
+                          XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED |
+                          XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
+    xcb_xkb_per_client_flags_reply_t* preply = xcb_xkb_per_client_flags_reply(
+        conn, xcb_xkb_per_client_flags(conn, XCB_XKB_ID_USE_CORE_KBD, mask, mask, 0, 0, 0), NULL);
+
+    if (!preply || !(preply->value & mask)) Log::error("Could not get xkb client flags");
+
+    free(preply);
+    xkb_base = reply->first_event;
+}
+
+void Server::_load_shape()
+{
+    const xcb_query_extension_reply_t* reply = xcb_get_extension_data(conn, &xcb_shape_id);
+    if (!reply->present) {
+        shape_support = 0;
+        Log::error("shape is not present on this server");
+        return;
+    }
+    shape_base = reply->first_event;
+    xcb_shape_query_version_reply_t* version = xcb_shape_query_version_reply(conn, xcb_shape_query_version(conn), NULL);
+    shape_support = version && version->minor_version >= 1;
+    free(version);
+}
+
+void Server::_load_randr()
+{
+    const xcb_query_extension_reply_t* reply = xcb_get_extension_data(conn, &xcb_randr_id);
+    randr_support = reply->present;
+    if (!randr_support) {
+        Log::error("randr is not present on this server");
+        return;
+    }
+    randr_base = reply->first_event;
+}
+
 Server* Server::init()
 {
-     try {
+    try {
         static Server srv;
 
         srv.conn = xcb_connect(NULL, &srv.screen_id);
         assert_(!xcb_connection_has_error(srv.conn), "Couldn't open display!");
 
         srv.screen = xcb_aux_get_screen(srv.conn, srv.screen_id);
-        
+
         return &srv;
     } catch (const std::exception& e) {
         Log::error(e.what());
@@ -162,8 +217,8 @@ void Server::run()
 {
     xcb_prefetch_extension_data(conn, &xcb_xkb_id);
     xcb_prefetch_extension_data(conn, &xcb_shape_id);
-    xcb_prefetch_extension_data(conn, &xcb_big_requests_id);
     xcb_prefetch_extension_data(conn, &xcb_randr_id);
+    xcb_prefetch_extension_data(conn, &xcb_big_requests_id);
 
     _acquire_timestamp();
     _acquire_atoms();
@@ -174,6 +229,11 @@ void Server::run()
     Log::info("Last timestamp: {}", timestamp);
 
     _load_cursors();
+    _load_xkb();
+    _load_shape();
+    _load_randr();
+
+    keysyms = xcb_key_symbols_alloc(conn); 
 
     xcb_flush(conn);
     // Main loop
@@ -182,8 +242,7 @@ void Server::run()
     xcb_aux_sync(conn);
     while ((event = xcb_wait_for_event(conn))) {
         if (event->response_type) {
-            if ((event->response_type & 0x7F) == XCB_MAP_REQUEST)
-                _eh->handle(event);
+            if ((event->response_type & 0x7F) == XCB_MAP_REQUEST) _eh->handle(event);
         }
         free(event);
     }
