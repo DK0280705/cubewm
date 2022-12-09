@@ -19,16 +19,19 @@ enum XCursor : unsigned int
     XCURSOR_MAX
 };
 
-class Server
+class Server final // kinda useless, but just for fancy.
 {
-    void _check_another_wm();
+    Server();
+
+    class Event_handler* _eh;
+
     void _acquire_atoms();
     void _acquire_timestamp();
     void _acquire_wm_sn();
 
-    void _load_cursors();
+    void _check_another_wm() const;
 
-    Server();
+    void _load_cursors();
 
 public:
     Server(const Server& s)  = delete;
@@ -54,7 +57,9 @@ public:
     struct Cursor
     {
         Cursor(const Server& srv) noexcept;
-        void          operator=(enum XCursor c);
+        // These are not actual setter and getter
+        // This is weird ones
+        void          operator=(enum XCursor c) const;
         xcb_cursor_t& operator[](enum XCursor c);
 
     private:

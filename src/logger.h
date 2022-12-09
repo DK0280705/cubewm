@@ -31,7 +31,7 @@ template<class...Args>
 constexpr void error(const char* msg, Args&&... var)
 {
     if constexpr (Size_of<Args...>::value) {
-        send_msg(std::cerr, fmt::format("[DEBUG] {}", fmt::vformat(msg, fmt::make_format_args(var...))));
+        send_msg(std::cerr, fmt::format("[ERROR] {}", fmt::vformat(msg, fmt::make_format_args(var...))));
     } else {
         send_msg(std::cerr, fmt::format("[ERROR] {}", msg)); 
     }

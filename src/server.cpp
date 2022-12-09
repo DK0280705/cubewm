@@ -1,3 +1,4 @@
+#include "event.h"
 #include "server.h"
 #include "atoms.h"
 #include "logger.h"
@@ -53,7 +54,7 @@ void Server::_acquire_timestamp()
 
 Server::Server() : cursor(*this) {}
 
-void Server::_check_another_wm()
+void Server::_check_another_wm() const
 {
     const uint32_t    select_input_val = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT;
     xcb_void_cookie_t cookie           = xcb_change_window_attributes_checked(conn, screen->root,
@@ -174,19 +175,24 @@ void Server::run()
 
     _load_cursors();
 
+    xcb_flush(conn);
     // Main loop
+    xcb_grab_server(conn);
     xcb_generic_event_t* event;
+    xcb_aux_sync(conn);
     while ((event = xcb_wait_for_event(conn))) {
-        switch (event->response_type) {
+        if (event->response_type) {
+            if ((event->response_type & 0x7F) == XCB_MAP_REQUEST)
+                _eh->handle(event);
         }
         free(event);
     }
-    return;
+    xcb_ungrab_server(conn);
 }
 
 Server::Cursor::Cursor(const Server& srv) noexcept : _srv(srv) {}
 
-void Server::Cursor::operator=(enum XCursor c)
+void Server::Cursor::operator=(enum XCursor c) const
 {
     unsigned int flag[] = {_cursors[c]};
     xcb_change_window_attributes(_srv.conn, _srv.screen->root, XCB_CW_CURSOR, flag);
