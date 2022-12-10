@@ -1,6 +1,6 @@
-#include "server.h"
 #include "atoms.h"
 #include "event.h"
+#include "server.h"
 #include "logger.h"
 #include <stdexcept>
 
@@ -20,7 +20,7 @@ extern "C" {
 #undef explicit
 }
 
-constexpr const char* wm_sn_name = "cubewm-WM-Sn";
+constexpr const char* WM_SN_CLASS_NAME = "cubewm-WM_Sn\0cubewm-WM_Sn\0";
 
 static void assert_(bool b, const char* msg)
 {
@@ -53,7 +53,13 @@ void Server::_acquire_timestamp()
     }
 }
 
-Server::Server() : cursor(*this) {}
+Server::Server() : cursor(*this)
+{
+    conn = xcb_connect(NULL, &screen_id);
+    assert_(!xcb_connection_has_error(conn), "Couldn't open display!");
+
+    screen = xcb_aux_get_screen(conn, screen_id);
+}
 
 void Server::_check_another_wm() const
 {
@@ -105,8 +111,8 @@ void Server::_acquire_wm_sn()
     xcb_create_window(conn, screen->root_depth, wm_sn_owner, screen->root, -1, -1, 1, 1, 0,
                       XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, 0, NULL);
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, wm_sn_owner, XCB_ATOM_WM_CLASS,
-                        XCB_ATOM_STRING, 8, (strlen(wm_sn_name) + 1) * 2,
-                        fmt::format("{}\0{}\0", wm_sn_name, wm_sn_name).c_str());
+                        XCB_ATOM_STRING, 8, strlen(WM_SN_CLASS_NAME),
+                        WM_SN_CLASS_NAME);
 
     xcb_set_selection_owner(conn, wm_sn_owner, wm_sn, timestamp);
     free(s_reply);
@@ -123,6 +129,11 @@ void Server::_acquire_wm_sn()
     event->data.data32[2] = wm_sn_owner;
 
     xcb_send_event(conn, 0, screen->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (char*)event);
+}
+
+void Server::_load_sn()
+{
+    sndisplay = sn_xcb_display_new(conn, NULL, NULL);
 }
 
 void Server::_load_cursors()
@@ -200,12 +211,6 @@ Server* Server::init()
 {
     try {
         static Server srv;
-
-        srv.conn = xcb_connect(NULL, &srv.screen_id);
-        assert_(!xcb_connection_has_error(srv.conn), "Couldn't open display!");
-
-        srv.screen = xcb_aux_get_screen(srv.conn, srv.screen_id);
-
         return &srv;
     } catch (const std::exception& e) {
         Log::error(e.what());
@@ -228,6 +233,7 @@ void Server::run()
     Log::info("Server started");
     Log::info("Last timestamp: {}", timestamp);
 
+    _load_sn();
     _load_cursors();
     _load_xkb();
     _load_shape();
