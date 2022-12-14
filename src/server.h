@@ -1,13 +1,13 @@
 #pragma once
+#include <unordered_map>
 extern "C" {
-#define SN_API_NOT_YET_FROZEN
-#include <libsn/sn.h>
-
 #include <xcb/xcb.h>
 #include <xcb/xcb_cursor.h>
-#include <xcb/xcb_keysyms.h>
 #include <xcb/xproto.h>
 }
+
+class Con;
+class Win;
 
 enum XCursor : unsigned int
 {
@@ -25,13 +25,7 @@ enum XCursor : unsigned int
 
 class Server final // kinda useless, but just for fancy.
 {
-    Server();
-
-    class Event_handler* _eh;
-
-    void _acquire_atoms();
-    void _acquire_timestamp();
-    void _acquire_wm_sn();
+    Server(xcb_connection_t* conn, int screen_id);
 
     void _check_another_wm() const;
 
@@ -49,8 +43,6 @@ public:
 
     static Server* init();
 
-    int screen_id;
-
     // extensions
     uint8_t xkb_support;
     uint8_t xkb_base;
@@ -61,20 +53,20 @@ public:
     uint8_t randr_support;
     uint8_t randr_base;
 
-    xcb_key_symbols_t* keysyms;
-
-    SnDisplay* sndisplay;
-
     xcb_connection_t* conn;
-    xcb_timestamp_t   timestamp;
-    xcb_atom_t        wm_sn;
-    xcb_window_t      wm_sn_owner;
 
+    int           screen_id;
     xcb_screen_t* screen;
+
+    class Event_handler* eh;
+    class EWMH*          ewmh;
+    class Root*          root;
 
     void run();
 
-    xcb_window_t create_window();
+    xcb_atom_t atom(const char* atom_name);
+
+    void manage_window(xcb_window_t id);
 
     struct Cursor
     {

@@ -1,6 +1,8 @@
 #include "atoms.h"
 #include "event.h"
+#include "ewmh.h"
 #include "server.h"
+#include "root.h"
 #include "logger.h"
 #include <stdexcept>
 
@@ -20,45 +22,28 @@ extern "C" {
 #undef explicit
 }
 
-constexpr const char* WM_SN_CLASS_NAME = "cubewm-WM_Sn\0cubewm-WM_Sn\0";
-
 static void assert_(bool b, const char* msg)
 {
     if (!b) throw std::runtime_error(msg);
 }
 
-void Server::_acquire_timestamp()
+Server::Server(xcb_connection_t* conn, int screen_id)
+    : conn(conn)
+    , screen_id(screen_id)
+    , screen(xcb_aux_get_screen(conn, screen_id))
+    , ewmh(EWMH::init(this))
+    , cursor(*this)
 {
-    xcb_generic_event_t* event;
-
-    xcb_window_t win  = screen->root;
-    xcb_atom_t   atom = XCB_ATOM_SUPERSCRIPT_X;
-    xcb_atom_t   type = XCB_ATOM_CARDINAL;
-
-    unsigned int flag[] = {XCB_EVENT_MASK_PROPERTY_CHANGE};
-    xcb_change_window_attributes(conn, win, XCB_CW_EVENT_MASK, flag);
-    xcb_change_property(conn, XCB_PROP_MODE_APPEND, win, atom, type, 32, 0, "");
-
-    xcb_prefetch_maximum_request_length(conn);
-
-    xcb_flush(conn);
-
-    while ((event = xcb_wait_for_event(conn))) {
-        if (XCB_EVENT_RESPONSE_TYPE(event) == XCB_PROPERTY_NOTIFY) {
-            timestamp = ((xcb_property_notify_event_t*)event)->time;
-            free(event);
-            break;
-        }
-        free(event);
-    }
 }
 
-Server::Server() : cursor(*this)
+Server* Server::init()
 {
-    conn = xcb_connect(NULL, &screen_id);
-    assert_(!xcb_connection_has_error(conn), "Couldn't open display!");
+    int screen_id;
+    xcb_connection_t* conn = xcb_connect(NULL, &screen_id);
+    if (xcb_connection_has_error(conn)) return nullptr;
 
-    screen = xcb_aux_get_screen(conn, screen_id);
+    static Server srv(conn, screen_id);
+    return &srv;
 }
 
 void Server::_check_another_wm() const
@@ -69,71 +54,6 @@ void Server::_check_another_wm() const
                                                                               &select_input_val);
     assert_(!xcb_request_check(conn, cookie),
             "Another window manager is already running! (X Server)");
-}
-
-void Server::_acquire_atoms()
-{
-#define xmacro(name)                                                                               \
-    {                                                                                              \
-        xcb_intern_atom_reply_t* reply =                                                           \
-            xcb_intern_atom_reply(conn, xcb_intern_atom(conn, 0, strlen(#name), #name), NULL);     \
-        assert_(reply, "Couldn't get atom name: " #name);                                          \
-        name = reply->atom;                                                                        \
-        free(reply);                                                                               \
-    }
-
-    ATOMS_XMACRO
-#undef xmacro
-}
-
-void Server::_acquire_wm_sn()
-{
-    // For the time being, i'll use this "WM_S" instead of "WM"
-    // As i use old i3 version instead of the newer ones.
-    char* atom_name = xcb_atom_name_by_screen("WM_S", screen_id);
-    assert_(atom_name, "Failed to get WM_Sn atom name");
-
-    wm_sn_owner = xcb_generate_id(conn);
-
-    xcb_intern_atom_reply_t* a_reply = xcb_intern_atom_reply(
-        conn, xcb_intern_atom_unchecked(conn, false, strlen(atom_name), atom_name), NULL);
-    free(atom_name);
-    assert_(a_reply, "Failed to intern WM_Sn atom");
-
-    wm_sn = a_reply->atom;
-    free(a_reply);
-
-    xcb_get_selection_owner_reply_t* s_reply =
-        xcb_get_selection_owner_reply(conn, xcb_get_selection_owner(conn, wm_sn), NULL);
-    assert_((!s_reply || s_reply->owner == XCB_NONE),
-            "Another window manager is already running! (WM_Sn Selection)");
-
-    xcb_create_window(conn, screen->root_depth, wm_sn_owner, screen->root, -1, -1, 1, 1, 0,
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, 0, NULL);
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, wm_sn_owner, XCB_ATOM_WM_CLASS,
-                        XCB_ATOM_STRING, 8, strlen(WM_SN_CLASS_NAME),
-                        WM_SN_CLASS_NAME);
-
-    xcb_set_selection_owner(conn, wm_sn_owner, wm_sn, timestamp);
-    free(s_reply);
-
-    char                        buf[32] = {0};
-    xcb_client_message_event_t* event   = (xcb_client_message_event_t*)buf;
-
-    event->response_type  = XCB_CLIENT_MESSAGE;
-    event->window         = screen->root;
-    event->format         = 32;
-    event->type           = MANAGER;
-    event->data.data32[0] = timestamp;
-    event->data.data32[1] = wm_sn;
-    event->data.data32[2] = wm_sn_owner;
-
-    xcb_send_event(conn, 0, screen->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (char*)event);
-}
-
-void Server::_load_sn()
-{
-    sndisplay = sn_xcb_display_new(conn, NULL, NULL);
 }
 
 void Server::_load_cursors()
@@ -207,52 +127,56 @@ void Server::_load_randr()
     randr_base = reply->first_event;
 }
 
-Server* Server::init()
-{
-    try {
-        static Server srv;
-        return &srv;
-    } catch (const std::exception& e) {
-        Log::error(e.what());
-        return nullptr;
-    }
-}
-
 void Server::run()
 {
+    assert_(ewmh->acquire_timestamp(), "Bruh, how?");
+    assert_(ewmh->acquire_selection_screen(true), "Failed to get selection screen");
+    _check_another_wm();
+    
     xcb_prefetch_extension_data(conn, &xcb_xkb_id);
     xcb_prefetch_extension_data(conn, &xcb_shape_id);
     xcb_prefetch_extension_data(conn, &xcb_randr_id);
     xcb_prefetch_extension_data(conn, &xcb_big_requests_id);
-
-    _acquire_timestamp();
-    _acquire_atoms();
-    _acquire_wm_sn();
-    _check_another_wm();
-
-    Log::info("Server started");
-    Log::info("Last timestamp: {}", timestamp);
-
-    _load_sn();
+    
     _load_cursors();
     _load_xkb();
     _load_shape();
     _load_randr();
 
-    keysyms = xcb_key_symbols_alloc(conn); 
+    root = Root::init(this);
+
+    Log::info("Server started");
+    Log::info("Last timestamp: {}", ewmh->timestamp);
 
     xcb_flush(conn);
-    // Main loop
+    
+    // Handle some bogus race condition
     xcb_grab_server(conn);
     xcb_generic_event_t* event;
     xcb_aux_sync(conn);
-    while ((event = xcb_wait_for_event(conn))) {
+    while ((event = xcb_poll_for_event(conn))) {
         if (event->response_type) {
-            if ((event->response_type & 0x7F) == XCB_MAP_REQUEST) _eh->handle(event);
+            int type = event->response_type & 0x7F;
+            if (type == XCB_MAP_REQUEST) eh->handle(type, event);
         }
         free(event);
     }
     xcb_ungrab_server(conn);
+
+    xcb_flush(conn);
+
+    // main loop
+    while ((event = xcb_wait_for_event(conn))) {
+        int type = event->response_type & ~0x80;
+        eh->handle(type, event);
+        free(event);
+        xcb_flush(conn);
+    }
+}
+
+xcb_atom_t Server::atom(const char* atom_name)
+{
+    return xcb_intern_atom_reply(conn, xcb_intern_atom_unchecked(conn, false, strlen(atom_name), atom_name), 0)->atom; 
 }
 
 Server::Cursor::Cursor(const Server& srv) noexcept : _srv(srv) {}
@@ -271,5 +195,6 @@ xcb_cursor_t& Server::Cursor::operator[](enum XCursor c)
 Server::~Server()
 {
     Log::info("Terminating");
+    xcb_cursor_context_free(cursor._ctx);
     xcb_disconnect(conn);
 }
