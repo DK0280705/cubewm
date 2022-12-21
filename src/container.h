@@ -1,29 +1,26 @@
 #pragma once
 #include "rect.h"
-#include <string>
 #include <list>
+#include <string>
 
 /**
  * Heavily inspired from i3 window manager's data structure
  * Which implements Root -> Outputs -> Workspaces/Dockareas -> Containers
  */
 class Server;
-class Output;
 class Workspace;
-class Win;
+class Cube_window;
 
 class Container
 {
 protected:
-    Server* srv_;
+    Server& srv;
 
 public:
-    Container(Server* srv);
+    Container(Server& srv);
     virtual ~Container();
 
     Container* parent;
-
-    std::list<Container*> children;
 
     enum
     {
@@ -33,36 +30,45 @@ public:
 
     enum
     {
-        CT_ROOT,
-        CT_OUTPUT,
+        CT_DOCKAREA,
         CT_WORKSPACE,
-        CT_DOCKAREA
+        CT_SPLIT,
+        CT_CONTAINER,
     } type;
 
-    Rect rect;
- 
-    Win* window;
+    Rectangle rect;
+
+    Cube_window* window;
 
     std::string name;
 
-    Container& create_and_attach_to(Container& parent, class Win& win);
-    Container& attach_to(Container& parent);
-    Container& merge_to(Container& new_con);
-    Container& move_to(Workspace& workspace);
-    Container& move_to(Output& output);
+    bool floating;
+
+    inline bool is_leaf() { return children.empty() && window; }
+
+    inline bool is_split() { return !is_leaf() && !type; }
+
+    /**
+     * @brief Add child to container
+     * @param con container to add
+     */
+    virtual Container& add_child(Container* con);
+    /**
+     * @brief Transfer another container child to this container
+     * @param con container to move
+     */
+    virtual Container& transfer_child(Container* con);
+    /**
+     * @brief Remove child from container
+     * @param con container to remove
+     */
+    virtual Container& remove_child(Container* con);
 
     Container& fullscreen();
-    Container& detach();
     Container& focus();
 
-    // Must know the type first to call these functions or bruh moment.
-    Output&    get_output();
-    Workspace& get_workspace();
-    Container& get_fullscreen();
+    virtual Workspace* get_workspace();
 
-    bool has_children();
-    bool is_internal();
-    bool is_managed();
-    bool is_split();
-    bool is_sticky();
+private:
+    std::list<Container*> children;
 };

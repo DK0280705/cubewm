@@ -1,6 +1,27 @@
 #pragma once
 
-#define ATOMS_XMACRO \
+#define _NET_WM_MOVERESIZE_SIZE_TOPLEFT     0
+#define _NET_WM_MOVERESIZE_SIZE_TOP         1
+#define _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    2
+#define _NET_WM_MOVERESIZE_SIZE_RIGHT       3
+#define _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT 4
+#define _NET_WM_MOVERESIZE_SIZE_BOTTOM      5
+#define _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  6
+#define _NET_WM_MOVERESIZE_SIZE_LEFT        7
+#define _NET_WM_MOVERESIZE_MOVE             8  /* movement only */
+#define _NET_WM_MOVERESIZE_SIZE_KEYBOARD    9  /* size via keyboard */
+#define _NET_WM_MOVERESIZE_MOVE_KEYBOARD    10 /* move via keyboard */
+#define _NET_WM_MOVERESIZE_CANCEL           11 /* cancel operation */
+
+#define _NET_MOVERESIZE_WINDOW_X      (1 << 8)
+#define _NET_MOVERESIZE_WINDOW_Y      (1 << 9)
+#define _NET_MOVERESIZE_WINDOW_WIDTH  (1 << 10)
+#define _NET_MOVERESIZE_WINDOW_HEIGHT (1 << 11)
+
+#define _NET_WM_DESKTOP_NONE 0xFFFFFFF0
+#define _NET_WM_DESKTOP_ALL  0xFFFFFFFF
+
+#define SUPPORTED_ATOMS_XMACRO \
 xmacro(_NET_SUPPORTED) \
 xmacro(_NET_SUPPORTING_WM_CHECK) \
 xmacro(_NET_WM_NAME) \
@@ -35,31 +56,35 @@ xmacro(_NET_DESKTOP_NAMES) \
 xmacro(_NET_DESKTOP_VIEWPORT) \
 xmacro(_NET_ACTIVE_WINDOW) \
 xmacro(_NET_CLOSE_WINDOW) \
-xmacro(_NET_MOVERESIZE_WINDOW) \
+xmacro(_NET_MOVERESIZE_WINDOW)
+
+#define ATOMS_XMACRO \
+SUPPORTED_ATOMS_XMACRO \
 xmacro(_NET_WM_USER_TIME) \
 xmacro(_NET_STARTUP_ID) \
 xmacro(_NET_WORKAREA) \
-xmacro(WM_PROTOCOLS) \
-xmacro(WM_DELETE_WINDOW) \
-xmacro(UTF8_STRING) \
-xmacro(WM_STATE) \
-xmacro(WM_CLIENT_LEADER) \
-xmacro(WM_TAKE_FOCUS) \
-xmacro(WM_WINDOW_ROLE) \
 xmacro(_NET_REQUEST_FRAME_EXTENTS) \
-xmacro(_NET_FRAME_EXTENTS) \
-xmacro(_MOTIF_WM_HINTS) \
 xmacro(_NET_SYSTEM_TRAY_ORIENTATION) \
 xmacro(_NET_SYSTEM_TRAY_VISUAL) \
 xmacro(_NET_SYSTEM_TRAY_OPCODE) \
 xmacro(_NET_SYSTEM_TRAY_COLORS) \
+xmacro(_NET_FRAME_EXTENTS) \
+xmacro(WM_STATE) \
+xmacro(WM_PROTOCOLS) \
+xmacro(WM_DELETE_WINDOW) \
+xmacro(WM_CLIENT_LEADER) \
+xmacro(WM_TAKE_FOCUS) \
+xmacro(WM_WINDOW_ROLE) \
+xmacro(WM_CHANGE_STATE) \
+xmacro(UTF8_STRING) \
+xmacro(_MOTIF_WM_HINTS) \
 xmacro(_XEMBED_INFO) \
 xmacro(_XEMBED) \
-xmacro(WM_CHANGE_STATE) \
 xmacro(MANAGER)
 
-typedef unsigned int xcb_atom_t;
 #define xmacro(name) \
-xcb_atom_t name = 0;
+extern unsigned int name;
 ATOMS_XMACRO
 #undef xmacro
+
+extern unsigned int WM_SN_ATOM;

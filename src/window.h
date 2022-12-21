@@ -1,30 +1,25 @@
 #pragma once
 #include <string>
-#include <vector>
-extern "C" {
-#include <xcb/xcb.h>
-#include <xcb/xproto.h>
-}
 
+// Forward Declarations
+typedef uint32_t xcb_window_t;
 class Server;
+class Container;
 
-class Win // Avoid name collision
+class Cube_window
 {
-    Server* _srv;
+    Server* srv;
+
 public:
-    Win(Server* srv);
+    Cube_window(Server* srv);
+    ~Cube_window();
 
     xcb_window_t id;
 
-    bool vertical;
-    bool floating;
+    Container* container;
+
     std::string name;
     std::string role;
-
-    void set_focus(xcb_timestamp_t t);
-   
-    xcb_atom_t get_window_type(xcb_get_property_type_t* reply);
-    
-    void add_atom(xcb_atom_t property, xcb_atom_t atom);
-    void remove_atom(xcb_atom_t property, xcb_atom_t atom);
+    bool fullscreen;
+    bool hidden;
 };

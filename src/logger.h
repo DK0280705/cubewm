@@ -3,47 +3,40 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
-#include <iostream>
 
 namespace Log
 {
-void send_msg(std::ostream &o, const std::string& msg);
+void print(const std::string& msg);
 
-template <typename...>
-struct Size_of
-{ enum { value = 0 }; };
+template<class Label, class Msg>
+inline void log(const Label& label, const Msg& msg)
+{
+    print(fmt::format("{} {}", label, msg)); 
+}
 
-template <typename Ty, typename...Ty2>
-struct Size_of<Ty, Ty2...>
-{ enum { value = 1 }; };
+template<class Label, class Msg, class...Args>
+constexpr void log(const Label& label, const Msg& msg, Args&&... var)
+{
+    print(fmt::format("{} {}", label, fmt::vformat(msg, fmt::make_format_args(var...))));
+}
 
 template<class...Args>
 constexpr void info(const char* msg, Args&&... var)
 {
-    if constexpr (Size_of<Args...>::value) {
-        send_msg(std::cout, fmt::format("[INFO] {}", fmt::vformat(msg, fmt::make_format_args(var...))));
-    } else {
-        send_msg(std::cout, fmt::format("[INFO] {}", msg)); 
-    }
+    log("\033[1;32m[INFO]\033[0m", msg, std::forward<Args>(var)...);
 }
 
 template<class...Args>
 constexpr void error(const char* msg, Args&&... var)
 {
-    if constexpr (Size_of<Args...>::value) {
-        send_msg(std::cerr, fmt::format("[ERROR] {}", fmt::vformat(msg, fmt::make_format_args(var...))));
-    } else {
-        send_msg(std::cerr, fmt::format("[ERROR] {}", msg)); 
-    }
+    log("\033[1;31m[ERROR]\033[0m", msg, std::forward<Args>(var)...);
 }
 
 template<class...Args>
 constexpr void debug(const char* msg, Args&&... var)
 {
-    if constexpr (Size_of<Args...>::value) {
-        send_msg(std::cout, fmt::format("[DEBUG] {}", fmt::vformat(msg, fmt::make_format_args(var...))));
-    } else {
-        send_msg(std::cout, fmt::format("[DEBUG] {}", msg)); 
-    }
+#ifndef NDEBUG
+    log("\033[1;34m[DEBUG]\033[0m", msg, std::forward<Args>(var)...);
+#endif
 }
 }

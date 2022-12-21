@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-struct Rect
+struct Rectangle
 {
     uint32_t x;
     uint32_t y;
