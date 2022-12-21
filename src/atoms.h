@@ -1,25 +1,25 @@
 #pragma once
 
-#define _NET_WM_MOVERESIZE_SIZE_TOPLEFT     0
-#define _NET_WM_MOVERESIZE_SIZE_TOP         1
-#define _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    2
-#define _NET_WM_MOVERESIZE_SIZE_RIGHT       3
-#define _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT 4
-#define _NET_WM_MOVERESIZE_SIZE_BOTTOM      5
-#define _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  6
-#define _NET_WM_MOVERESIZE_SIZE_LEFT        7
-#define _NET_WM_MOVERESIZE_MOVE             8  /* movement only */
-#define _NET_WM_MOVERESIZE_SIZE_KEYBOARD    9  /* size via keyboard */
-#define _NET_WM_MOVERESIZE_MOVE_KEYBOARD    10 /* move via keyboard */
-#define _NET_WM_MOVERESIZE_CANCEL           11 /* cancel operation */
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPLEFT     = 1;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOP         = 1;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    = 2;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_RIGHT       = 3;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT = 4;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOM      = 5;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  = 6;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_LEFT        = 7;
+constexpr unsigned int _NET_WM_MOVERESIZE_MOVE             = 8; /* movement only */
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_KEYBOARD    = 9; /* size via keyboard */
+constexpr unsigned int _NET_WM_MOVERESIZE_MOVE_KEYBOARD    = 10;/* move via keyboard */
+constexpr unsigned int _NET_WM_MOVERESIZE_CANCEL           = 11;/* cancel operation */
 
-#define _NET_MOVERESIZE_WINDOW_X      (1 << 8)
-#define _NET_MOVERESIZE_WINDOW_Y      (1 << 9)
-#define _NET_MOVERESIZE_WINDOW_WIDTH  (1 << 10)
-#define _NET_MOVERESIZE_WINDOW_HEIGHT (1 << 11)
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_X      = (1 << 8);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_Y      = (1 << 9);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_WIDTH  = (1 << 10);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_HEIGHT = (1 << 11);
 
-#define _NET_WM_DESKTOP_NONE 0xFFFFFFF0
-#define _NET_WM_DESKTOP_ALL  0xFFFFFFFF
+constexpr unsigned int _NET_WM_DESKTOP_NONE = 0xFFFFFFF0;
+constexpr unsigned int _NET_WM_DESKTOP_ALL  = 0xFFFFFFFF;
 
 #define SUPPORTED_ATOMS_XMACRO \
 xmacro(_NET_SUPPORTED) \
