@@ -28,7 +28,7 @@ bool randr_enabled = true;
 static const Connection* conn = nullptr;
 void init(const Connection& conn)
 {
-    if (conn) throw Init_error("Atoms");
+    if (Config::conn) throw Init_error("Config");
     Config::conn = &conn;
 
     xcb_prefetch_extension_data(conn, &xcb_xkb_id);

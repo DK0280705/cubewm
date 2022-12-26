@@ -14,7 +14,7 @@ static const Connection* conn = nullptr; // NOLINT
 
 void init(const Connection& conn)
 {
-    if (conn) throw Init_error("XWrap");
+    if (XWrap::conn) throw Init_error("XWrap");
     XWrap::conn = &conn;
 }
 

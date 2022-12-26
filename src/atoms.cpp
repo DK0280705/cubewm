@@ -23,7 +23,7 @@ static const Connection* conn = nullptr; // NOLINT
 
 void init(const Connection& conn)
 {
-    if (conn) throw Init_error("Atoms");
+    if (Atom::conn) throw Init_error("Atom");
     Atom::conn = &conn;
 
 #define xmacro(name)                                                           \
