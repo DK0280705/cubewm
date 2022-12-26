@@ -66,6 +66,4 @@ void Workspace_manager::purge_container(Container* con)
                     ->remove_child(parent);
         delete parent;
     } 
-
-    delete con;
 }
