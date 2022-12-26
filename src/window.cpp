@@ -1,10 +1,13 @@
 #include "window.h"
 
-Cube_window::Cube_window(Server* srv)
-    : srv(srv)
+Window::Window(Window_id id)
+    : rect({0, 0, 0, 0})
+    , fullscreen(false)
+    , hidden(false)
+    , _id(id)
 {
 }
 
-Cube_window::~Cube_window()
+Window::~Window()
 {
 }

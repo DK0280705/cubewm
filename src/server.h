@@ -1,7 +1,6 @@
 #pragma once
-#include "atoms.h"
+#include "connection.h"
 #include "rect.h"
-#include <cstdint>
 #include <span>
 #include <string>
 #include <unordered_set>
@@ -12,60 +11,26 @@ extern "C" {
 #include <xcb/xproto.h>
 }
 
-class Root;
-class Container;
-
-enum XCursor : unsigned int
-{
-    XCURSOR_POINTER = 0,
-    XCURSOR_RESIZE_HORIZONTAL,
-    XCURSOR_RESIZE_VERTICAL,
-    XCURSOR_TOP_LEFT_CORNER,
-    XCURSOR_TOP_RIGHT_CORNER,
-    XCURSOR_BOTTOM_LEFT_CORNER,
-    XCURSOR_BOTTOM_RIGHT_CORNER,
-    XCURSOR_WATCH,
-    XCURSOR_MOVE,
-    XCURSOR_MAX
-};
-
 class Server
 {
-    xcb_connection_t* conn;
+public: 
+    static Server& init(Connection& conn);
 
-public:
-    Server(const Server& s)  = delete;
-    Server(const Server&& s) = delete;
-
-    ~Server();
-
-    static Server& instance();
-
-    int             default_screen;
-    xcb_screen_t*   screen;
-    xcb_timestamp_t timestamp;
-
-    // Contains main loop
-    void run();
-
-    inline xcb_connection_t* operator()() const;
-    inline xcb_window_t      root_window() const;
-    inline Rectangle         rect() const;
-
-    xcb_atom_t  atom(const std::string& atom_name) const;
-    std::string atom_name(xcb_atom_t atom) const;
+    void start();
+    void restart();
+    void stop();
 
     void handle(int type, xcb_generic_event_t* event);
-    void manage_window(xcb_window_t id);
 
-    template<class T, std::size_t N>
-    inline void change_property(
-        xcb_window_t window, xcb_atom_t property, xcb_atom_t type, uint8_t format, std::span<T, N> data) const;
-    inline void change_atom_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const;
-    inline void change_string_property(xcb_window_t window, xcb_atom_t property, std::span<const char*> data) const;
-    inline void change_window_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const;
-    inline void change_cardinal_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const;
+    inline xcb_window_t root_window() const
+    { return _conn.screen()->root; }
 
+    inline Rectangle default_rect() const
+    {
+        return {0, 0, _conn.screen()->width_in_pixels,
+                _conn.screen()->height_in_pixels};
+    }
+    
     // Handler functions
     void on_key_press(const xcb_key_press_event_t& event);
     void on_button_press(const xcb_button_press_event_t& event);
@@ -85,53 +50,22 @@ public:
     void on_client_message(const xcb_client_message_event_t& event);
     void on_mapping_notify(const xcb_mapping_notify_event_t& event);
 
+    Server(const Server&)             = delete;
+    Server(const Server&&)            = delete;
+    Server& operator=(const Server&)  = delete;
+    Server& operator=(const Server&&) = delete;
+    ~Server();
+
 private:
-    Server();
+    Connection& _conn;
 
-    Root*                        root;
-    std::unordered_set<uint64_t> ignored_events;
+    bool _terminating;
+    
+    class Window_manager&    _window_manager;    // #include "windowmanager.h"
+    class Monitor_manager&   _monitor_manager;   // #include "monitormanager.h"
+    class Workspace_manager& _workspace_manager; // #include "workspacemaanger.h
 
-    void acquire_timestamp();
+    std::unordered_set<uint64_t> _ignored_events;
+
+    Server(Connection& conn);
 };
-
-xcb_connection_t* Server::operator()() const
-{
-    return conn;
-}
-
-xcb_window_t Server::root_window() const
-{
-    return screen->root;
-}
-
-Rectangle Server::rect() const
-{
-    return {0, 0, screen->width_in_pixels, screen->height_in_pixels};
-}
-
-template<class T, std::size_t N>
-void Server::change_property(
-    xcb_window_t window, xcb_atom_t property, xcb_atom_t type, uint8_t format, std::span<T, N> data) const
-{
-    xcb_change_property(conn, XCB_PROP_MODE_REPLACE, window, property, type, format, data.size(), data.data());
-}
-
-void Server::change_atom_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const
-{
-    change_property(window, property, XCB_ATOM_ATOM, 32, data);
-}
-
-void Server::change_string_property(xcb_window_t window, xcb_atom_t property, std::span<const char*> data) const
-{
-    change_property(window, property, UTF8_STRING, 8, data);
-}
-
-void Server::change_window_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const
-{
-    change_property(window, property, XCB_ATOM_WINDOW, 32, data);
-}
-
-void Server::change_cardinal_property(xcb_window_t window, xcb_atom_t property, std::span<uint32_t> data) const
-{
-    change_property(window, property, XCB_ATOM_CARDINAL, 32, data);
-}

@@ -1,25 +1,37 @@
 #pragma once
+#include "rect.h"
 #include <string>
 
 // Forward Declarations
-typedef uint32_t xcb_window_t;
-class Server;
-class Container;
+class Container;        // #include "container.h"
+class Window_container; // ---------------------
 
-class Cube_window
+class Window
 {
-    Server* srv;
-
 public:
-    Cube_window(Server* srv);
-    ~Cube_window();
+    using Window_id = unsigned int;
 
-    xcb_window_t id;
-
-    Container* container;
+    Rectangle rect;
 
     std::string name;
     std::string role;
+
     bool fullscreen;
     bool hidden;
+
+    inline Window_container* container() const
+    { return _container; }
+
+    Window(Window_id id);
+    Window(const Window&)         = delete;
+    Window(Window&&)              = delete;
+    auto operator=(const Window&) = delete;
+    auto operator=(Window&&)      = delete;
+    ~Window();
+
+private:
+    Window_id _id;
+
+    friend class Window_container;
+    Window_container* _container;
 };

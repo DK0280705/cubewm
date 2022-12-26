@@ -1,43 +1,32 @@
 #pragma once
-#include "dockarea.h"
-#include "workspace.h"
+#include "rect.h"
+#include <list>
 #include <string>
-#include <vector>
-#include <map>
 
-extern "C" {
-#include <xcb/randr.h>
-}
-
-class Server;
-class Root;
-class Workspace;
-class Dockarea;
-struct Rectangle;
+class Workspace; // #include "workspace.h"
 
 class Monitor
 {
-    Server& srv;
-    Root&   root;
-
 public:
-    Monitor(Server& srv, Root& root, Rectangle rect);
+    using Monitor_id          = unsigned int;
+    using Monitor_name        = std::string;
+    using Workspace_container = std::list<Workspace*>;
+
+    Monitor_id   index;
+    Monitor_name name;
+    Rectangle    rect;
+    bool         primary;
+
+    Monitor(const Monitor_id index);
+
+    void add_workspace(Workspace* ws);
+    void transfer_workspace(Workspace* ws);
+    void remove_workspace(Workspace* ws);
+
     ~Monitor();
 
-    xcb_randr_output_t randr_id;
-
-    bool primary;
-
-    Rectangle rect;
-
-    std::vector<std::string> names;
-
-    void add_workspace(uint32_t id);
-    void remove_workspace(uint32_t id);
-
-    void move_to_workspace(uint32_t id);
-
 private:
-    std::list<Dockarea*>  dockareas;
-    std::list<Workspace*> workspaces;
+    // For structural design
+    // Removing an object from a container does not delete the object's memory.
+    Workspace_container _workspaces;
 };

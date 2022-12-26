@@ -7,6 +7,9 @@ extern "C" {
 #include <xcb/xproto.h>
 }
 
+// Forward declarations
+class Connection; // #include "connection.h"
+
 namespace Config
 {
 static const uint32_t ROOT_EVENT_MASK = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY;
@@ -20,5 +23,18 @@ extern bool randr_support;
 extern uint8_t xkb_base;
 extern uint8_t shape_base;
 extern uint8_t randr_base;
+
+// Disabled by default
+extern bool xinerama_enabled;
+// Enabled by default
+extern bool randr_enabled;
+
+// How many times should i make this function instead of making class
+void init(const Connection& conn);
+
+// Load configurations
+// From .config/cube ? or idk
+void load_config();
+void load_extensions();
 
 } // namespace Config

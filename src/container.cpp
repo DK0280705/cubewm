@@ -1,39 +1,51 @@
 #include "container.h"
-#include "workspace.h"
 #include "error.h"
+#include "window.h"
+#include "workspace.h"
 
-Container::Container(Server& srv)
-    : srv(srv)
+Container::Container() noexcept
+    : orientation(CO_HORIZONTAL)
+    , type(CT_CONTAINER)
+    , rect({0, 0, 0, 0})
+    , floating(false)
+    , hidden(false)
+    , _parent(nullptr)
 {
 }
 
-Container& Container::add_child(Container* con)
+Container* Container::add_child(Container* con)
 {
-    children.push_back(con);
-    return *this;
+    con->_parent = this;
+    _children.push_back(con);
+    return this;
 }
 
-Container& Container::transfer_child(Container* con)
+Container* Container::transfer_child(Container* con)
 {
-    con->parent->children.remove(con);
+    con->_parent->_children.remove(con);
     return add_child(con);
 }
 
-Container& Container::remove_child(Container* con)
+Container* Container::remove_child(Container* con)
 {
-    children.remove(con);
-    delete con;
-    return *this;
+    con->_parent = nullptr;
+    _children.remove(con);
+    return this;
 }
 
 Workspace* Container::get_workspace()
 {
     assert_runtime(type != CT_DOCKAREA, "Invalid container");
-    return parent->get_workspace();
+    return _parent->get_workspace();
 }
 
 Container::~Container()
 {
-    for (const auto& c : children)
-        delete c;
+    for (const auto& c : _children) delete c;
+}
+
+Window_container::Window_container(Window* win)
+    : _window(win)
+{
+    win->_container = this;
 }

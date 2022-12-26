@@ -3,25 +3,13 @@
 #include <list>
 #include <string>
 
-/**
- * Heavily inspired from i3 window manager's data structure
- * Which implements Root -> Outputs -> Workspaces/Dockareas -> Containers
- */
-class Server;
-class Workspace;
-class Cube_window;
+// Forward declarations
+class Workspace; // #include "workspace.h"
+class Window;    // #include "window.h"
 
 class Container
 {
-protected:
-    Server& srv;
-
 public:
-    Container(Server& srv);
-    virtual ~Container();
-
-    Container* parent;
-
     enum
     {
         CO_HORIZONTAL,
@@ -32,43 +20,63 @@ public:
     {
         CT_DOCKAREA,
         CT_WORKSPACE,
-        CT_SPLIT,
         CT_CONTAINER,
     } type;
 
-    Rectangle rect;
-
-    Cube_window* window;
-
+    Rectangle   rect;
     std::string name;
 
     bool floating;
+    bool hidden;
+    
+    Container() noexcept;
 
-    inline bool is_leaf() { return children.empty() && window; }
+    inline Container* parent() const
+    { return _parent; }
 
-    inline bool is_split() { return !is_leaf() && !type; }
+    inline std::size_t size() const
+    { return _children.size(); }
+
+    inline Container* front() const
+    { return _children.front(); }
+
+    inline Container* back() const
+    { return _children.back(); }
+
+    inline Container* at(int index) const
+    { return *std::next(_children.begin(), index); }
 
     /**
      * @brief Add child to container
      * @param con container to add
      */
-    virtual Container& add_child(Container* con);
+    virtual Container* add_child(Container* con);
     /**
      * @brief Transfer another container child to this container
      * @param con container to move
      */
-    virtual Container& transfer_child(Container* con);
+    virtual Container* transfer_child(Container* con);
     /**
      * @brief Remove child from container
      * @param con container to remove
      */
-    virtual Container& remove_child(Container* con);
-
-    Container& fullscreen();
-    Container& focus();
+    virtual Container* remove_child(Container* con);
 
     virtual Workspace* get_workspace();
 
+    virtual ~Container();
+
+protected:
+    Container*            _parent;
+    std::list<Container*> _children;
+};
+
+class Window_container : public Container
+{
+public:
+    Window_container(Window* win);
+
 private:
-    std::list<Container*> children;
+    Window* _window;
+    // Fill with decorator/frame or etc
 };

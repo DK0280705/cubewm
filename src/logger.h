@@ -35,8 +35,6 @@ constexpr void error(const char* msg, Args&&... var)
 template<class...Args>
 constexpr void debug(const char* msg, Args&&... var)
 {
-#ifndef NDEBUG
     log("\033[1;34m[DEBUG]\033[0m", msg, std::forward<Args>(var)...);
-#endif
 }
 }

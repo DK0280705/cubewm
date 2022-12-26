@@ -1,26 +1,12 @@
 #pragma once
+/**
+ * Represents X11 atoms
+ * Some of them are uninitialized global variables
+ * Becareful on using them
+ */
 
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPLEFT     = 1;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOP         = 1;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    = 2;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_RIGHT       = 3;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT = 4;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOM      = 5;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  = 6;
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_LEFT        = 7;
-constexpr unsigned int _NET_WM_MOVERESIZE_MOVE             = 8; /* movement only */
-constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_KEYBOARD    = 9; /* size via keyboard */
-constexpr unsigned int _NET_WM_MOVERESIZE_MOVE_KEYBOARD    = 10;/* move via keyboard */
-constexpr unsigned int _NET_WM_MOVERESIZE_CANCEL           = 11;/* cancel operation */
-
-constexpr unsigned int _NET_MOVERESIZE_WINDOW_X      = (1 << 8);
-constexpr unsigned int _NET_MOVERESIZE_WINDOW_Y      = (1 << 9);
-constexpr unsigned int _NET_MOVERESIZE_WINDOW_WIDTH  = (1 << 10);
-constexpr unsigned int _NET_MOVERESIZE_WINDOW_HEIGHT = (1 << 11);
-
-constexpr unsigned int _NET_WM_DESKTOP_NONE = 0xFFFFFFF0;
-constexpr unsigned int _NET_WM_DESKTOP_ALL  = 0xFFFFFFFF;
-
+// clang-format off
+#include <string>
 #define SUPPORTED_ATOMS_XMACRO \
 xmacro(_NET_SUPPORTED) \
 xmacro(_NET_SUPPORTING_WM_CHECK) \
@@ -58,7 +44,7 @@ xmacro(_NET_ACTIVE_WINDOW) \
 xmacro(_NET_CLOSE_WINDOW) \
 xmacro(_NET_MOVERESIZE_WINDOW)
 
-#define ATOMS_XMACRO \
+#define ALL_ATOMS_XMACRO \
 SUPPORTED_ATOMS_XMACRO \
 xmacro(_NET_WM_USER_TIME) \
 xmacro(_NET_STARTUP_ID) \
@@ -81,10 +67,45 @@ xmacro(_MOTIF_WM_HINTS) \
 xmacro(_XEMBED_INFO) \
 xmacro(_XEMBED) \
 xmacro(MANAGER)
+// clang-format on
 
-#define xmacro(name) \
-extern unsigned int name;
-ATOMS_XMACRO
+class Connection;
+
+namespace Atom
+{
+
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPLEFT     = 1;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOP         = 1;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    = 2;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_RIGHT       = 3;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT = 4;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOM      = 5;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  = 6;
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_LEFT        = 7;
+constexpr unsigned int _NET_WM_MOVERESIZE_MOVE          = 8; /* movement only */
+constexpr unsigned int _NET_WM_MOVERESIZE_SIZE_KEYBOARD = 9; /* size via
+                                                                keyboard */
+constexpr unsigned int _NET_WM_MOVERESIZE_MOVE_KEYBOARD = 10; /* move via
+                                                                 keyboard */
+constexpr unsigned int _NET_WM_MOVERESIZE_CANCEL = 11; /* cancel operation */
+
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_X      = (1 << 8);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_Y      = (1 << 9);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_WIDTH  = (1 << 10);
+constexpr unsigned int _NET_MOVERESIZE_WINDOW_HEIGHT = (1 << 11);
+
+constexpr unsigned int _NET_WM_DESKTOP_NONE = 0xFFFFFFF0;
+constexpr unsigned int _NET_WM_DESKTOP_ALL  = 0xFFFFFFFF;
+
+typedef unsigned int xcb_atom_t;
+#define xmacro(name) extern xcb_atom_t name;
+ALL_ATOMS_XMACRO; // NOLINT
+xmacro(WM_SN);    // NOLINT
 #undef xmacro
 
-extern unsigned int WM_SN_ATOM;
+void        init(const Connection& conn);
+xcb_atom_t  by_name(const char* name);
+xcb_atom_t  by_screen(const char* base_name);
+std::string name(const xcb_atom_t atom);
+
+} // namespace Atom
