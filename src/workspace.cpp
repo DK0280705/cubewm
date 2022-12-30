@@ -4,6 +4,8 @@
 
 Workspace::Workspace(Workspace_id index)
     : _id(index)
+    , _focused(this)
+    , _monitor(nullptr)
 {
     type = Container::CT_WORKSPACE;
     name = std::to_string(index + 1);

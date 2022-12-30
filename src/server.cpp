@@ -13,7 +13,8 @@ Server::Server(Connection& conn)
     , _workspace_manager(Workspace_manager::init<Workspace_manager>(*this))
 {
     Workspace* first_ws = _workspace_manager.manage(0);
-    _monitor_manager.manage(0);
+    _monitor_manager.update();
+    // Add workspace on primary monitor
     _monitor_manager.place_workspace(0, first_ws);
     _workspace_manager.focus(first_ws);
 }

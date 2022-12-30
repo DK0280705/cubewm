@@ -3,7 +3,7 @@
 Window::Window(Window_id id)
     : rect({0, 0, 0, 0})
     , fullscreen(false)
-    , hidden(false)
+    , hidden(true)
     , _id(id)
 {
 }

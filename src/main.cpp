@@ -223,6 +223,9 @@ int main(int argc, char* const argv[])
         std::signal(SIGTERM, shandler);
         std::signal(SIGCHLD, [](int) {});
 
+        Rectangle rect = srv.default_rect();
+        Log::debug("Root rect -> x: {}, y: {}, width: {}, height: {}", rect.x, rect.y, rect.width, rect.height);
+
         srv.start();
     } catch (const std::exception& e) {
         Log::error(e.what());

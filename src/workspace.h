@@ -1,5 +1,6 @@
 #pragma once
 #include "container.h"
+#include "workspacemanager.h"
 
 // Forward declarations
 class Monitor; // #include "monitor.h"
@@ -13,9 +14,15 @@ public:
 
     Workspace* get_workspace() override;
 
+    inline Workspace_id id() const
+    { return _id; }
+
 private:
     Workspace_id _id;
-    
+
+    friend class Workspace_manager;
+    Container* _focused;
+ 
     friend class Monitor;
     Monitor* _monitor;
 };

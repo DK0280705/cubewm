@@ -20,8 +20,6 @@ public:
     void restart();
     void stop();
 
-    void handle(int type, xcb_generic_event_t* event);
-
     inline xcb_window_t root_window() const
     { return _conn.screen()->root; }
 
@@ -31,6 +29,8 @@ public:
                 _conn.screen()->height_in_pixels};
     }
     
+    void handle(int type, xcb_generic_event_t* event);
+
     // Handler functions
     void on_key_press(const xcb_key_press_event_t& event);
     void on_button_press(const xcb_button_press_event_t& event);

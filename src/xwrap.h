@@ -11,6 +11,7 @@
 typedef uint32_t xcb_window_t;
 typedef uint32_t xcb_atom_t;
 class Connection; // #include "connection.h"
+class Window;     // #include "window.h"
 
 namespace XWrap
 {
@@ -61,4 +62,5 @@ void send_event(const xcb_window_t window,
 // Check for error returned by checked functions
 bool check_error(const uint32_t sequence);
 
+void configure_window(const Window& win);
 } // namespace XWrap

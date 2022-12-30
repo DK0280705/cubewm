@@ -21,11 +21,17 @@ public:
     inline Container* focused() const
     { return _focused_container; }
 
-    void place_container(Container* con);
+    inline Workspace_id current() const
+    { return _current_workspace; }
+
+    void place_container(const Workspace_id id, Container* con);
     void purge_container(Container* con);
 
+    void update_container(Container* con);
+
 private:
-    Container* _focused_container;
+    Container*   _focused_container;
+    Workspace_id _current_workspace;
     
     friend class Manager;
     Workspace_manager(Server& srv);

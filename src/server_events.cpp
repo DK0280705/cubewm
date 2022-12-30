@@ -6,6 +6,7 @@
 #include "container.h"
 #include "window.h"
 #include "logger.h"
+#include "xwrap.h"
 #include <csignal>
 
 void Server::on_key_press(const xcb_key_press_event_t& event) {}
@@ -68,7 +69,7 @@ void Server::on_map_request(const xcb_map_request_event_t& event)
     Window* win = _window_manager.manage(event.window);
 
     Window_container* con = new Window_container(win);
-    _workspace_manager.place_container(con);
+    _workspace_manager.place_container(_workspace_manager.current(), con);
 
     xcb_map_window(_conn, event.window);
 }

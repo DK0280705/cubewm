@@ -2,6 +2,8 @@
 #include "atoms.h"
 #include "connection.h"
 #include "error.h"
+#include "logger.h"
+#include "window.h"
 
 extern "C" {
 #include <xcb/xproto.h>
@@ -105,6 +107,26 @@ bool check_error(const uint32_t sequence)
     bool  result = !reply;
     free(reply);
     return result;
+}
+
+void configure_window(const Window& win)
+{
+    constexpr static uint16_t mask = XCB_CONFIG_WINDOW_X
+                                   | XCB_CONFIG_WINDOW_Y
+                                   | XCB_CONFIG_WINDOW_WIDTH
+                                   | XCB_CONFIG_WINDOW_HEIGHT;
+
+    const uint32_t values[] = {
+        win.rect.x,
+        win.rect.y,
+        win.rect.width,
+        win.rect.height
+    };
+    
+    Log::debug("Window {} size -> x: {}, y: {}, width: {}, height: {}",
+               win.id(), win.rect.x, win.rect.y, win.rect.width, win.rect.height);
+
+    xcb_configure_window(*conn, win.id(), mask, values); // NOLINT
 }
 
 } // namespace XWrap

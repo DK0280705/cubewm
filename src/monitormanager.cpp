@@ -25,6 +25,10 @@ void Monitor_manager::unmanage(const Monitor_id id)
 void Monitor_manager::place_workspace(const Monitor_id id, Workspace* ws)
 {
     assert_runtime(_managed.contains(id), "Invalid monitor id");
+    const Monitor* mon = _managed.at(id);
+    // Should calculate if there's a dock window
+    // But not gonna be a problem for now
+    ws->rect = mon->rect;
     _managed.at(id)->add_workspace(ws);
 }
 

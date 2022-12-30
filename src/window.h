@@ -22,6 +22,9 @@ public:
     inline Window_container* container() const
     { return _container; }
 
+    inline Window_id id() const
+    { return _id; }
+
     Window(Window_id id);
     Window(const Window&)         = delete;
     Window(Window&&)              = delete;

@@ -43,14 +43,29 @@ public:
     inline Container* back() const
     { return _children.back(); }
 
+    inline auto begin()
+    { return _children.begin(); }
+
+    inline auto end()
+    { return _children.end(); }
+
+    inline auto cbegin() const
+    { return _children.cbegin(); }
+
+    inline auto cend() const
+    { return _children.cend(); }
+
     inline Container* at(int index) const
     { return *std::next(_children.begin(), index); }
+
+    inline virtual bool leaf() const
+    { return false; }
 
     /**
      * @brief Add child to container
      * @param con container to add
      */
-    virtual Container* add_child(Container* con);
+    virtual Container* add_child(Container* con, Container* next_to = nullptr);
     /**
      * @brief Transfer another container child to this container
      * @param con container to move
@@ -75,6 +90,12 @@ class Window_container : public Container
 {
 public:
     Window_container(Window* win);
+
+    inline Window* window() const
+    { return _window; }
+
+    inline bool leaf() const override
+    { return true; }
 
 private:
     Window* _window;

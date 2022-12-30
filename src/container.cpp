@@ -2,6 +2,7 @@
 #include "error.h"
 #include "window.h"
 #include "workspace.h"
+#include <algorithm>
 
 Container::Container() noexcept
     : orientation(CO_HORIZONTAL)
@@ -13,10 +14,15 @@ Container::Container() noexcept
 {
 }
 
-Container* Container::add_child(Container* con)
+Container* Container::add_child(Container* con, Container* next_to)
 {
     con->_parent = this;
-    _children.push_back(con);
+    if (!next_to)
+        _children.push_back(con);
+    else {
+        const auto it = std::find(_children.begin(), _children.end(), next_to);
+        _children.insert(std::next(it, 1), con);
+    }
     return this;
 }
 
