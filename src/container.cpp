@@ -64,14 +64,7 @@ void Container::configure_child_rect()
             child->_rect.y      = next_pos_y;
             next_pos_y        += child->_rect.height;
         }
-        if (child->leaf()) {
-            Window* win = dynamic_cast<Window_container*>(child)->window();
-            // It should do calculation for border size and decorations
-            win->rect = child->_rect;
-            XWrap::configure_window(*win);
-        } else {
-            child->configure_child_rect();
-        }
+        child->configure_child_rect();
     }
 }
 
@@ -84,4 +77,11 @@ Window_container::Window_container(Window* win)
     : _window(win)
 {
     win->container = this;
+}
+
+void Window_container::configure_child_rect()
+{
+    // It should do calculation for border size and decorations
+    _window->rect = _rect;
+    XWrap::configure_window(*_window);
 }

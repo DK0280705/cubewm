@@ -8,6 +8,7 @@
 #include "logger.h"
 #include "xwrap.h"
 #include <csignal>
+#include <xcb/xproto.h>
 
 void Server::on_key_press(const xcb_key_press_event_t& event) {}
 
@@ -72,6 +73,7 @@ void Server::on_map_request(const xcb_map_request_event_t& event)
     _workspace_manager.place_container(_workspace_manager.current(), con);
 
     xcb_map_window(_conn, event.window);
+    xcb_set_input_focus(_conn, XCB_INPUT_FOCUS_POINTER_ROOT, event.window, _conn.timestamp);
 }
 
 void Server::on_configure_notify(const xcb_configure_notify_event_t& event)

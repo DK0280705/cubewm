@@ -51,9 +51,6 @@ public:
     inline bool empty() const
     { return _children.empty(); }
 
-    virtual bool leaf() const
-    { return false; }
-
     virtual Container* add_child(Container* con, Container* next_to = nullptr);
     
     virtual Container* transfer_child(Container* con);
@@ -63,7 +60,7 @@ public:
     virtual Workspace* get_workspace();
 
     // Configure children rect
-    void configure_child_rect();
+    virtual void configure_child_rect();
 
     virtual ~Container();
 
@@ -84,8 +81,7 @@ public:
     inline Window* window() const
     { return _window; }
 
-    bool leaf() const override
-    { return true; }
+    void configure_child_rect() override;
 
 private:
     Window* _window;
