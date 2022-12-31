@@ -27,8 +27,6 @@ public:
     void place_container(const Workspace_id id, Container* con);
     void purge_container(Container* con);
 
-    void update_container(Container* con);
-
 private:
     Container*   _focused_container;
     Workspace_id _current_workspace;

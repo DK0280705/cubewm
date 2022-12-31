@@ -3,38 +3,15 @@
 #include <string>
 
 // Forward Declarations
-class Container;        // #include "container.h"
-class Window_container; // ---------------------
+class Window_container; // #include "container.h"
 
-class Window
+struct Window
 {
-public:
     using Window_id = unsigned int;
+    Window_id         id;
+    Rectangle         rect;
+    std::string       name;
+    Window_container* container;
 
-    Rectangle rect;
-
-    std::string name;
-    std::string role;
-
-    bool fullscreen;
-    bool hidden;
-
-    inline Window_container* container() const
-    { return _container; }
-
-    inline Window_id id() const
-    { return _id; }
-
-    Window(Window_id id);
-    Window(const Window&)         = delete;
-    Window(Window&&)              = delete;
-    auto operator=(const Window&) = delete;
-    auto operator=(Window&&)      = delete;
-    ~Window();
-
-private:
-    Window_id _id;
-
-    friend class Window_container;
-    Window_container* _container;
+    Window(Window_id id) noexcept;
 };

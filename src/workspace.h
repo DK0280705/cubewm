@@ -12,10 +12,12 @@ public:
 
     Workspace(Workspace_id id);
 
-    Workspace* get_workspace() override;
-
     inline Workspace_id id() const
     { return _id; }
+
+    Workspace* get_workspace() override;
+
+    void configure_rect(const Rectangle& rect);
 
 private:
     Workspace_id _id;

@@ -1,17 +1,21 @@
 #include "workspace.h"
 #include "monitor.h"
-#include <xcb/xcb_atom.h>
 
 Workspace::Workspace(Workspace_id index)
     : _id(index)
     , _focused(this)
     , _monitor(nullptr)
 {
-    type = Container::CT_WORKSPACE;
-    name = std::to_string(index + 1);
+    _type = CT::Workspace;
 }
 
 Workspace* Workspace::get_workspace()
 {
     return this;
+}
+
+void Workspace::configure_rect(const Rectangle& rect)
+{
+    _rect = rect;
+    configure_child_rect();
 }

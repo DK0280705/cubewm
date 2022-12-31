@@ -28,7 +28,7 @@ void Monitor_manager::place_workspace(const Monitor_id id, Workspace* ws)
     const Monitor* mon = _managed.at(id);
     // Should calculate if there's a dock window
     // But not gonna be a problem for now
-    ws->rect = mon->rect;
+    ws->configure_rect(mon->_rect);
     _managed.at(id)->add_workspace(ws);
 }
 
@@ -42,8 +42,7 @@ void Monitor_manager::update()
     // For now, let's just add one monitor;
     if (_managed.empty()) {
         Monitor* mon = manage(0);
-        mon->rect    = _srv.default_rect();
-        mon->name    = "xroot-0";
-        mon->primary = true;
+        mon->_rect    = _srv.default_rect();
+        mon->_primary = true;
     }
 }

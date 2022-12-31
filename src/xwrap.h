@@ -11,7 +11,7 @@
 typedef uint32_t xcb_window_t;
 typedef uint32_t xcb_atom_t;
 class Connection; // #include "connection.h"
-class Window;     // #include "window.h"
+struct Window;     // #include "window.h"
 
 namespace XWrap
 {

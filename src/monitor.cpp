@@ -2,8 +2,10 @@
 #include "workspace.h"
 #include <algorithm>
 
-Monitor::Monitor(const Monitor_id index)
-    : index(index)
+Monitor::Monitor(const Monitor_id id) noexcept
+    : _id(id)
+    , _rect({0, 0, 0, 0})
+    , _primary(false)
 {
 }
 

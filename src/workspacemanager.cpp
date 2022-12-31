@@ -2,10 +2,7 @@
 #include "container.h"
 #include "error.h"
 #include "server.h"
-#include "window.h"
 #include "workspace.h"
-#include "xwrap.h"
-#include <cmath>
 #include <xcb/xproto.h>
 
 Workspace_manager::Workspace_manager(Server& srv)
@@ -41,30 +38,21 @@ void Workspace_manager::place_container(const Workspace_id id, Container* con)
     Container* updated_con = nullptr;
     Container* focused_con = (_current_workspace == id) ? focused() : _managed.at(id)->_focused;
     
-    switch (focused_con->type) {
-    case Container::CT_WORKSPACE:
+    switch (focused_con->type()) {
+    case CT::Workspace:
         focused_con->add_child(con);
         updated_con = focused_con;
         break;
-    case Container::CT_CONTAINER:
-        if (focused_con->orientation == focused_con->parent()->orientation) {
-            focused_con->parent()->add_child(con, focused_con);
-            updated_con = focused_con->parent();
-        } else {
-            Container* split_con = new Container();
-            Container* parent    = focused_con->parent();
-            split_con->transfer_child(focused())
-                     ->add_child(con);
-            parent->add_child(split_con);
-            updated_con = parent;
-        }
+    case CT::Container:
+        focused_con->parent()->add_child(con, focused_con);
+        updated_con = focused_con->parent();
         break;
     default:
         assert_runtime(false, "What? you focused a dock container?");
         break;
     }
     
-    update_container(updated_con);
+    updated_con->configure_child_rect();
     focus(con);
 }
 
@@ -79,7 +67,7 @@ void Workspace_manager::purge_container(Container* con)
     
     // Check if there's only one container in the parent
     // Transfer that container into the parent of the parent
-    if (parent->type == Container::CT_CONTAINER && parent->size() == 1) {
+    if (parent->type() == CT::Container && parent->empty()) {
         Container* grand_parent = parent->parent();
         grand_parent->transfer_child(parent->front())
                     ->remove_child(parent);
@@ -92,41 +80,5 @@ void Workspace_manager::purge_container(Container* con)
     } else {
         focus(updated_con);
     }
-    update_container(updated_con);
-}
-
-static void update_container_recurse(Container* parent)
-{
-    const Rectangle parent_rect = parent->rect;
-
-    uint32_t next_pos_x = parent->rect.x;
-    uint32_t next_pos_y = parent->rect.y;
-    for (const auto& child : *parent) {
-        // All of the configured resize will be reset
-        const float mult = 1.0f / static_cast<float>(parent->size());
-        if (parent->orientation == Container::CO_HORIZONTAL) {
-            child->rect.height = parent_rect.height;
-            child->rect.width  = std::round(mult * parent_rect.width); // NOLINT
-            child->rect.x      = next_pos_x;
-            next_pos_x        += child->rect.width;
-        } else {
-            child->rect.height = std::round(mult * parent_rect.height); // NOLINT
-            child->rect.width  = parent_rect.width;
-            child->rect.y      = next_pos_y;
-            next_pos_y        += child->rect.height;
-        }
-        if (child->leaf()) {
-            Window* win = dynamic_cast<Window_container*>(child)->window();
-            // It should do calculation for border size and decorations
-            win->rect = child->rect;
-            XWrap::configure_window(*win);
-        } else {
-            update_container_recurse(child);
-        }
-    }
-}
-
-void Workspace_manager::update_container(Container* con)
-{
-    update_container_recurse(con);       
+    updated_con->configure_child_rect();
 }

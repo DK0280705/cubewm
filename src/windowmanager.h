@@ -8,7 +8,7 @@
 typedef unsigned int xcb_window_t;
 class Server;    // #include "server.h"
 class Container; // #include "container.h"
-class Window;    // #include "window.h"
+struct Window;    // #include "window.h"
 
 // It's clear, it's a window manager class
 class Window_manager : public Manager<Window>

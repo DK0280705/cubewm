@@ -124,9 +124,9 @@ void configure_window(const Window& win)
     };
     
     Log::debug("Window {} size -> x: {}, y: {}, width: {}, height: {}",
-               win.id(), win.rect.x, win.rect.y, win.rect.width, win.rect.height);
+               win.id, win.rect.x, win.rect.y, win.rect.width, win.rect.height);
 
-    xcb_configure_window(*conn, win.id(), mask, values); // NOLINT
+    xcb_configure_window(*conn, win.id, mask, values); // NOLINT
 }
 
 } // namespace XWrap

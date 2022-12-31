@@ -2,14 +2,14 @@
 #include "error.h"
 #include "window.h"
 #include "workspace.h"
+#include "xwrap.h"
+#include <cmath>
 #include <algorithm>
 
 Container::Container() noexcept
-    : orientation(CO_HORIZONTAL)
-    , type(CT_CONTAINER)
-    , rect({0, 0, 0, 0})
-    , floating(false)
-    , hidden(false)
+    : _type(CT::Container)
+    , _orientation(CO::Horizontal)
+    , _rect({0, 0, 0, 0})
     , _parent(nullptr)
 {
 }
@@ -41,8 +41,38 @@ Container* Container::remove_child(Container* con)
 
 Workspace* Container::get_workspace()
 {
-    assert_runtime(type != CT_DOCKAREA, "Invalid container");
+    assert_runtime(_type != CT::Dockarea, "Invalid container");
     return _parent->get_workspace();
+}
+
+void Container::configure_child_rect()
+{
+    uint32_t next_pos_x = _rect.x;
+    uint32_t next_pos_y = _rect.y;
+
+    for (const auto& child : _children) {
+        // All of the configured resize will be reset
+        const float mult = 1.0f / static_cast<float>(size());
+        if (_orientation == CO::Horizontal) {
+            child->_rect.height = _rect.height;
+            child->_rect.width  = std::round(mult * _rect.width); // NOLINT
+            child->_rect.x      = next_pos_x;
+            next_pos_x         += child->_rect.width;
+        } else {
+            child->_rect.height = std::round(mult * _rect.height); // NOLINT
+            child->_rect.width  = _rect.width;
+            child->_rect.y      = next_pos_y;
+            next_pos_y        += child->_rect.height;
+        }
+        if (child->leaf()) {
+            Window* win = dynamic_cast<Window_container*>(child)->window();
+            // It should do calculation for border size and decorations
+            win->rect = child->_rect;
+            XWrap::configure_window(*win);
+        } else {
+            child->configure_child_rect();
+        }
+    }
 }
 
 Container::~Container()
@@ -53,5 +83,5 @@ Container::~Container()
 Window_container::Window_container(Window* win)
     : _window(win)
 {
-    win->_container = this;
+    win->container = this;
 }

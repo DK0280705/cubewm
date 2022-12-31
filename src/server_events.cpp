@@ -50,7 +50,7 @@ void Server::on_unmap_notify(const xcb_unmap_notify_event_t& event)
         return;
     }
     Window* win = _window_manager.at(event.window);
-    Window_container* con = win->container();
+    Window_container* con = win->container;
     _workspace_manager.purge_container(con);
     _window_manager.unmanage(event.window);
     delete con;
