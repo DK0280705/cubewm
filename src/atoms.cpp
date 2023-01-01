@@ -1,7 +1,10 @@
 #include "atoms.h"
 #include "connection.h"
 #include "error.h"
+#include <cstddef>
 #include <cstring>
+#include <memory>
+#include <xcb/xproto.h>
 
 extern "C" {
 #include <xcb/xcb_atom.h>
@@ -37,17 +40,14 @@ void init(const Connection& conn)
 
 xcb_atom_t by_name(const char* name)
 {
-    // Though, i'm not sure this would fail.
-    // The pointer reply makes me a bit puzzled.
-    auto* reply = xcb_intern_atom_reply(
-        *conn,
-        xcb_intern_atom_unchecked(*conn, false, strlen(name), name),
-        nullptr);
+    auto reply = std::unique_ptr<xcb_intern_atom_reply_t, void(*)(void*)>(
+        xcb_intern_atom_reply(
+            *conn,
+            xcb_intern_atom_unchecked(*conn, false, strlen(name), name),
+            nullptr),
+        free);
 
-    xcb_atom_t atom = reply->atom;
-    free(reply);
-
-    return atom;
+    return reply->atom;
 }
 
 xcb_atom_t by_screen(const char* base_name)
@@ -62,15 +62,14 @@ xcb_atom_t by_screen(const char* base_name)
 
 std::string name(const xcb_atom_t atom)
 {
-    auto* reply = xcb_get_atom_name_reply(
+    auto reply = std::unique_ptr<xcb_get_atom_name_reply_t, void(*)(void*)>(
+        xcb_get_atom_name_reply(
             *conn,
             xcb_get_atom_name(*conn, atom),
-            NULL);
+            NULL),
+        free);
 
-    std::string name = xcb_get_atom_name_name(reply);
-    free(reply);
-
-    return name;
+    return xcb_get_atom_name_name(reply.get());
 }
 
 } // namespace Atom

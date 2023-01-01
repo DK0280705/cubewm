@@ -59,21 +59,15 @@ void Server::on_unmap_notify(const xcb_unmap_notify_event_t& event)
 
 void Server::on_map_request(const xcb_map_request_event_t& event)
 {
-    _ignored_events.insert(event.sequence);
+    _ignored_events.insert(event.sequence); 
 
-    // We're not managing managed windows, just map it away
-    if (_window_manager.is_managed(event.window)) {
-        xcb_map_window(_conn, event.window);
+    if (window_manageable(_window_manager, event.window, false))
         return;
-    }
 
     Window* win = _window_manager.manage(event.window);
 
     Window_container* con = new Window_container(win);
     _workspace_manager.place_container(_workspace_manager.current(), con);
-
-    xcb_map_window(_conn, event.window);
-    xcb_set_input_focus(_conn, XCB_INPUT_FOCUS_POINTER_ROOT, event.window, _conn.timestamp);
 }
 
 void Server::on_configure_notify(const xcb_configure_notify_event_t& event)

@@ -9,7 +9,7 @@ Workspace::Workspace(Workspace_id index)
     _type = CT::Workspace;
 }
 
-Workspace* Workspace::get_workspace()
+Workspace* Workspace::workspace()
 {
     return this;
 }

@@ -15,7 +15,7 @@ public:
     inline Workspace_id id() const
     { return _id; }
 
-    Workspace* get_workspace() override;
+    Workspace* workspace() override;
 
     void configure_rect(const Rectangle& rect);
 

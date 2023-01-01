@@ -5,21 +5,25 @@
  */
 
 #include <cstdint>
+#include <memory>
 #include <span>
+#include <vector>
+
+extern "C" {
+#include <xcb/xproto.h>
+}
 
 // Forward declarations
-typedef uint32_t xcb_window_t;
-typedef uint32_t xcb_atom_t;
 class Connection; // #include "connection.h"
 struct Window;     // #include "window.h"
 
 namespace XWrap
 {
-enum CP_mode
+enum class CP
 {
-    CP_REPLACE,
-    CP_PREPEND,
-    CP_APPEND,
+    Replace,
+    Prepend,
+    Append,
 };
 
 void init(const Connection& conn);
@@ -27,31 +31,41 @@ void init(const Connection& conn);
 uint32_t change_atom_property(const xcb_window_t        window,
                               const xcb_atom_t          property,
                               std::span<const uint32_t> data,
-                              const CP_mode             mode = CP_REPLACE);
+                              const CP                  mode = CP::Replace);
 
 uint32_t change_utf8string_property(const xcb_window_t     window,
                                     const xcb_atom_t       property,
                                     std::span<const char*> data,
-                                    const CP_mode          mode = CP_REPLACE);
+                                    const CP               mode = CP::Replace);
 
 uint32_t change_string_property(const xcb_window_t    window,
                                 const xcb_atom_t      property,
                                 std::span<const char> data,
-                                const CP_mode         mode = CP_REPLACE);
+                                const CP              mode = CP::Replace);
 
 uint32_t change_window_property(const xcb_window_t        window,
                                 const xcb_atom_t          property,
                                 std::span<const uint32_t> data,
-                                const CP_mode             mode = CP_REPLACE);
+                                const CP                  mode = CP::Replace);
 
 uint32_t change_cardinal_property(const xcb_window_t        window,
                                   const xcb_atom_t          property,
                                   std::span<const uint32_t> data,
-                                  const CP_mode             mode = CP_REPLACE);
+                                  const CP                  mode = CP::Replace);
 
 uint32_t change_window_attributes(const xcb_window_t        window,
                                   const uint32_t            value_mask,
                                   std::span<const uint32_t> data);
+
+auto get_window_attributes(const xcb_window_t window) -> std::unique_ptr<xcb_get_window_attributes_reply_t, void(*)(void*)>;
+
+std::vector<xcb_window_t> get_windows();
+
+xcb_atom_t  get_window_type(const xcb_window_t window);
+std::string get_window_name(const xcb_window_t window);
+std::string get_window_role(const xcb_window_t window);
+uint32_t    get_window_workspace(const xcb_window_t window);
+auto        get_window_class(const xcb_window_t window) -> std::pair<std::string, std::string>;
 
 // We have to find a way to convert event into char
 void send_event(const xcb_window_t window,

@@ -23,3 +23,5 @@ private:
     friend class Manager;
     Window_manager(Server& srv);
 };
+
+bool window_manageable(Window_manager& wm, Window_manager::Window_id id, bool must_be_mapped);

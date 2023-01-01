@@ -51,13 +51,13 @@ public:
     inline bool empty() const
     { return _children.empty(); }
 
-    virtual Container* add_child(Container* con, Container* next_to = nullptr);
+    virtual Container* add(Container* con, Container* next_to = nullptr);
     
-    virtual Container* transfer_child(Container* con);
+    virtual Container* transfer(Container* con);
     
-    virtual Container* remove_child(Container* con);
+    virtual Container* remove(Container* con);
 
-    virtual Workspace* get_workspace();
+    virtual Workspace* workspace();
 
     // Configure children rect
     virtual void configure_child_rect();

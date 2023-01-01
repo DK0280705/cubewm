@@ -27,7 +27,7 @@ void Workspace_manager::unmanage(const Workspace_id id)
 
 void Workspace_manager::focus(Container* con)
 {
-    Workspace* ws      = con->get_workspace();
+    Workspace* ws      = con->workspace();
     _current_workspace = ws->id();
     _focused_container = con;
     ws->_focused       = con;
@@ -40,11 +40,11 @@ void Workspace_manager::place_container(const Workspace_id id, Container* con)
     
     switch (focused_con->type()) {
     case CT::Workspace:
-        focused_con->add_child(con);
+        focused_con->add(con);
         updated_con = focused_con;
         break;
     case CT::Container:
-        focused_con->parent()->add_child(con, focused_con);
+        focused_con->parent()->add(con, focused_con);
         updated_con = focused_con->parent();
         break;
     default:
@@ -61,7 +61,7 @@ void Workspace_manager::purge_container(Container* con)
     // If you try to purge workspace,
     // you know if you know
     Container* parent = con->parent();
-    parent->remove_child(con);
+    parent->remove(con);
 
     Container* updated_con = parent;
     
@@ -69,8 +69,8 @@ void Workspace_manager::purge_container(Container* con)
     // Transfer that container into the parent of the parent
     if (parent->type() == CT::Container && parent->empty()) {
         Container* grand_parent = parent->parent();
-        grand_parent->transfer_child(parent->front())
-                    ->remove_child(parent);
+        grand_parent->transfer(parent->front())
+                    ->remove(parent);
         updated_con = grand_parent;
         delete parent;
     }

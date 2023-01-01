@@ -82,7 +82,7 @@ static void acquire_first_timestamp(Connection& conn)
     XWrap::change_cardinal_property(conn.screen()->root,
                                     XCB_ATOM_SUPERSCRIPT_X,
                                     {},
-                                    XWrap::CP_APPEND);
+                                    XWrap::CP::Append);
     xcb_ungrab_server(conn);
 
     xcb_flush(conn);
@@ -100,12 +100,11 @@ static void acquire_selection_owner(const Connection&  conn,
                                     const xcb_window_t main_window,
                                     const bool         replace_wm)
 {
-    auto* reply = xcb_get_selection_owner_reply(
-        conn, xcb_get_selection_owner(conn, Atom::WM_SN), 0);
-    if (reply && reply->owner != XCB_NONE && !replace_wm) {
-        free(reply);
-        assert_runtime(false, "Another WM is running (Selection Owner)");
-    }
+    std::unique_ptr<xcb_get_selection_owner_reply_t, void(*)(void*)> reply(
+        xcb_get_selection_owner_reply(
+            conn, xcb_get_selection_owner(conn, Atom::WM_SN), 0),
+        free);
+    assert_runtime(!(reply && reply->owner != XCB_NONE && !replace_wm), "Another WM is running (Selection Owner)");
 
     // This will trigger selection clear event on another wm
     xcb_set_selection_owner(conn, main_window, Atom::WM_SN, conn.timestamp);
@@ -128,8 +127,6 @@ static void acquire_selection_owner(const Connection&  conn,
             std::this_thread::sleep_for(2s); // It's clear, sleep for 10 seconds
         }
     }
-
-    free(reply);
 
     // Announce that we're the new selection owner
     const xcb_client_message_event_t event = {
@@ -159,10 +156,10 @@ int main(int argc, char* const argv[])
 {
     static const std::array<struct option, 3> options {
         {
-            {"help", no_argument, 0, 'h'},
-            {"replace", no_argument, 0, 'r'},
-            {"use-xinerama", no_argument, 0, 'x'},
-        }
+         {"help", no_argument, 0, 'h'},
+         {"replace", no_argument, 0, 'r'},
+         {"use-xinerama", no_argument, 0, 'x'},
+         }
     };
     int option_index = 0, opt = 0;
 
@@ -224,7 +221,11 @@ int main(int argc, char* const argv[])
         std::signal(SIGCHLD, [](int) {});
 
         Rectangle rect = srv.default_rect();
-        Log::debug("Root rect -> x: {}, y: {}, width: {}, height: {}", rect.x, rect.y, rect.width, rect.height);
+        Log::debug("Root rect -> x: {}, y: {}, width: {}, height: {}",
+                   rect.x,
+                   rect.y,
+                   rect.width,
+                   rect.height);
 
         srv.start();
     } catch (const std::exception& e) {

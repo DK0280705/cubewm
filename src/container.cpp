@@ -14,7 +14,7 @@ Container::Container() noexcept
 {
 }
 
-Container* Container::add_child(Container* con, Container* next_to)
+Container* Container::add(Container* con, Container* next_to)
 {
     con->_parent = this;
     if (!next_to)
@@ -26,23 +26,23 @@ Container* Container::add_child(Container* con, Container* next_to)
     return this;
 }
 
-Container* Container::transfer_child(Container* con)
+Container* Container::transfer(Container* con)
 {
     con->_parent->_children.remove(con);
-    return add_child(con);
+    return add(con);
 }
 
-Container* Container::remove_child(Container* con)
+Container* Container::remove(Container* con)
 {
     con->_parent = nullptr;
     _children.remove(con);
     return this;
 }
 
-Workspace* Container::get_workspace()
+Workspace* Container::workspace()
 {
     assert_runtime(_type != CT::Dockarea, "Invalid container");
-    return _parent->get_workspace();
+    return _parent->workspace();
 }
 
 void Container::configure_child_rect()
