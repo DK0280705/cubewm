@@ -9,8 +9,14 @@
 #include "xwrap.h"
 #include <csignal>
 #include <xcb/xproto.h>
+#include <xcb/xcb.h>
 
-void Server::on_key_press(const xcb_key_press_event_t& event) {}
+void Server::on_key_press(const xcb_key_press_event_t& event)
+{
+    if ((event.state & XCB_MOD_MASK_4) == XCB_MOD_MASK_4) {
+        
+    } 
+}
 
 void Server::on_button_press(const xcb_button_press_event_t& event) {}
 
@@ -97,12 +103,10 @@ void Server::handle(int type, xcb_generic_event_t* event)
 
     switch (type) {
     case XCB_KEY_PRESS:
-    case XCB_KEY_RELEASE:
         Log::debug("Key press event");
         on_key_press(*(xcb_key_press_event_t*)event);
         break;
     case XCB_BUTTON_PRESS:
-    case XCB_BUTTON_RELEASE:
         Log::debug("Button press event");
         on_button_press(*(xcb_button_press_event_t*)event);
         break;

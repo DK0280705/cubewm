@@ -7,10 +7,8 @@
 #include <limits>
 #include <memory>
 #include <xcb/xcb.h>
-
-extern "C" {
 #include <xcb/xproto.h>
-}
+#include <xkbcommon/xkbcommon-x11.h>
 
 namespace XWrap
 {

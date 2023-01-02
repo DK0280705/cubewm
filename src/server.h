@@ -19,6 +19,9 @@ public:
     void start();
     void restart();
     void stop();
+    
+    inline const Connection& conn() const
+    { return _conn; }
 
     inline xcb_window_t root_window() const
     { return _conn.screen()->root; }
@@ -60,7 +63,8 @@ private:
     Connection& _conn;
 
     bool _terminating;
-    
+
+    class Keybind&           _keybind;           // #include "keybind.h"    
     class Window_manager&    _window_manager;    // #include "windowmanager.h"
     class Monitor_manager&   _monitor_manager;   // #include "monitormanager.h"
     class Workspace_manager& _workspace_manager; // #include "workspacemaanger.h

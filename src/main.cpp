@@ -7,12 +7,12 @@
 #include "xwrap.h"
 #include <csignal>
 #include <thread>
-#include <xcb/xproto.h>
 
 extern "C" {
 #include <getopt.h>
 #include <unistd.h>
 #include <xcb/xcb_atom.h>
+#include <xcb/xproto.h>
 }
 
 static void setup_hints(const Connection& conn, const xcb_window_t main_window)
