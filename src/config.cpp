@@ -76,7 +76,7 @@ static void load_xkb(const Connection& conn)
     if (!client_flags || !(client_flags->value & flags))
         Log::error("Could not get xkb client flags");
 
-    free(client_flags);
+    if (client_flags) free(client_flags);
 
     Config::xkb_support = reply->present;
     Config::xkb_base    = reply->first_event;

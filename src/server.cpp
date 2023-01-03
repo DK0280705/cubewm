@@ -1,5 +1,6 @@
 #include "server.h"
 #include "error.h"
+#include "keybind.h"
 #include "windowmanager.h"
 #include "monitormanager.h"
 #include "workspacemanager.h"
@@ -25,6 +26,7 @@ static void manage_existing_windows(Window_manager& wm, Workspace_manager& wsm)
 Server::Server(Connection& conn)
     : _conn(conn)
     , _terminating(false)
+    , _keybind(Keybind::init(*this))
     , _window_manager(Window_manager::init<Window_manager>(*this))
     , _monitor_manager(Monitor_manager::init<Monitor_manager>(*this))
     , _workspace_manager(Workspace_manager::init<Workspace_manager>(*this))
@@ -61,10 +63,8 @@ void Server::start()
 
         xcb_flush(_conn);
         while ((event = xcb_poll_for_event(_conn))) {
-            const int type = event->response_type & 0x7F;
-            handle(type, event);
+            handle(*event);
             free(event);
-
             xcb_flush(_conn);
         }
     }

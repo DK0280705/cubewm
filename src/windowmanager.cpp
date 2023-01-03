@@ -1,4 +1,5 @@
 #include "windowmanager.h"
+#include "logger.h"
 #include "server.h"
 #include "window.h"
 #include "xwrap.h"
@@ -31,16 +32,17 @@ void Window_manager::unmanage(const Window_id id)
 
 bool window_manageable(Window_manager& wm, Window_manager::Window_id id, bool must_be_mapped)
 {
-    if (wm.is_managed(id))
+    if (wm.is_managed(id)) {
+        Log::debug("Can't manage already managed window");
         return false;
+    }
 
     auto attr = XWrap::get_window_attributes(id);
     
-    if (attr->override_redirect)
+    if (attr->override_redirect) {
+        Log::debug("Can't manage window with override_redirect attribute");
         return false;
-
-    if (must_be_mapped && attr->map_state != XCB_MAP_STATE_VIEWABLE)
-        return false;
+    }
 
     return true;
 }

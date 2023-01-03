@@ -8,7 +8,7 @@ add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-unused-value -Wno-m
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
 find_package(PkgConfig)
-pkg_check_modules(DEPS REQUIRED xcb xcb-icccm xcb-keysyms xcb-xkb xcb-randr xcb-shape xcb-util xcb-cursor fmt libstartup-notification-1.0)
+pkg_check_modules(DEPS REQUIRED xcb xcb-icccm xcb-keysyms xcb-xkb xcb-randr xcb-shape xcb-util xkbcommon xkbcommon-x11 xcb-cursor fmt)
 
 include_directories(${DEPS_INCLUDE_DIRS})
 add_executable(${PROJECT_NAME} ${SRC_FILES})

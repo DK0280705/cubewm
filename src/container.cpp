@@ -76,6 +76,7 @@ Container::~Container()
 Window_container::Window_container(Window* win)
     : _window(win)
 {
+    _type = CT::Window;
     win->container = this;
 }
 

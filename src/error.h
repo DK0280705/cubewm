@@ -14,11 +14,11 @@ inline void assert_runtime(bool b, const char* msg)
     if (!b) throw std::runtime_error(msg);
 }
 
-template<class T>
-inline T check_return(T&& t, bool b, const char* msg)
+template<class T, class E>
+inline T check_return(T&& t, E&& except, const char* msg)
 {
-    assert_runtime(b, msg);
-    return std::forward(t);
+    assert_runtime(t != except, msg);
+    return t;
 }
 
 template<class T>

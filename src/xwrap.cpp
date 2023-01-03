@@ -137,7 +137,7 @@ xcb_atom_t get_window_type(const xcb_window_t window)
     const xcb_atom_t* atoms = reinterpret_cast<xcb_atom_t*>(
         xcb_get_property_value(prop.get()));
     for (int i = 0;
-         i < xcb_get_property_value_length(prop.get()) / (prop->format / 8);
+         i < xcb_get_property_value_length(prop.get()) / sizeof(xcb_atom_t);
          i++)
         if (atoms[i] == Atom::_NET_WM_WINDOW_TYPE_NORMAL ||
             atoms[i] == Atom::_NET_WM_WINDOW_TYPE_DIALOG ||

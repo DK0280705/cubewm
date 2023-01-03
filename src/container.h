@@ -17,6 +17,7 @@ enum class CT
     Container,
     Dockarea,
     Workspace,
+    Window,
 };
 
 class Container

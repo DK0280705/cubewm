@@ -32,7 +32,7 @@ public:
                 _conn.screen()->height_in_pixels};
     }
     
-    void handle(int type, xcb_generic_event_t* event);
+    void handle(const xcb_generic_event_t& event);
 
     // Handler functions
     void on_key_press(const xcb_key_press_event_t& event);
