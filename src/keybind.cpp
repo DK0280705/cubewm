@@ -79,6 +79,7 @@ void Keybind::handle(const xcb_generic_event_t& event)
 
 Keybind::~Keybind()
 {
+    xcb_key_symbols_free(_symbols);
     xkb_state_unref(_state);
     xkb_keymap_unref(_keymap);
     xkb_context_unref(_ctx);
