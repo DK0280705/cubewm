@@ -1,17 +1,1 @@
-[
-{
-  "directory": "/home/dk_028/Documents/cpp/cubewm/debug",
-  "command": "/usr/bin/c++ -g -Og -Wall -Winvalid-pch -Wno-reorder -pthread -fPIC -rdynamic -g -std=gnu++20 -o CMakeFiles/cubewm.dir/src/connection.cpp.o -c /home/dk_028/Documents/cpp/cubewm/src/connection.cpp",
-  "file": "/home/dk_028/Documents/cpp/cubewm/src/connection.cpp"
-},
-{
-  "directory": "/home/dk_028/Documents/cpp/cubewm/debug",
-  "command": "/usr/bin/c++ -g -Og -Wall -Winvalid-pch -Wno-reorder -pthread -fPIC -rdynamic -g -std=gnu++20 -o CMakeFiles/cubewm.dir/src/logger.cpp.o -c /home/dk_028/Documents/cpp/cubewm/src/logger.cpp",
-  "file": "/home/dk_028/Documents/cpp/cubewm/src/logger.cpp"
-},
-{
-  "directory": "/home/dk_028/Documents/cpp/cubewm/debug",
-  "command": "/usr/bin/c++ -g -Og -Wall -Winvalid-pch -Wno-reorder -pthread -fPIC -rdynamic -g -std=gnu++20 -o CMakeFiles/cubewm.dir/src/main.cpp.o -c /home/dk_028/Documents/cpp/cubewm/src/main.cpp",
-  "file": "/home/dk_028/Documents/cpp/cubewm/src/main.cpp"
-}
-]
+debug/compile_commands.json
