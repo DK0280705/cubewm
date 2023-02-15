@@ -2,7 +2,8 @@
 #include "container.h"
 #include "manager.h"
 
-class Workspace : public Node<Container>
+class Workspace : public Node_box<Container>
+                , public Visit<Workspace>
                 , public Managed
 {
     Container* _focused;
@@ -18,8 +19,10 @@ public:
     inline void focused(Container* con)
     { _focused = con; }
 
+    inline Layout_container* operator[](const int index) const
+    { return dynamic_cast<Layout_container*>(*std::next(_children.begin(), index)); }
+
 public:
-    void update_focus()                    override;
     void update_rect(const Vector2D& rect) override;
 
     ~Workspace() override

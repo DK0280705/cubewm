@@ -1,58 +1,44 @@
 #include "window_helper.h"
+#include "helper.h"
+#include "logger.h"
 #include "workspace.h"
 #include "window.h"
 
-void Place_window::operator ()(Manager<Workspace>& manager) const
+void place::operator()(Workspace* ws) const
 {
-    Workspace* ws = manager.at(window->workspace()->index());
-
-    Container* focused     = ws->focused();
-    Container* updated_con = nullptr;
-
-    if (focused) {
-        Node<Container>* parent = focused->parent();
-        parent->add(window);
-        updated_con = parent;
-
-    } else if (!ws->empty()) {
-        Layout_container* lcon = dynamic_cast<Layout_container*>(*ws->begin());
-        lcon->add(window);
-        updated_con = lcon;
-
-    } else {
+    logger::debug("place: Visiting workspace");
+    window->workspace(ws);
+    if (ws->empty() || create_new) {
         // By default it's a horizontal container
         // Maybe i will add a config to change default container
-        Horizontal_container* hcon = new Horizontal_container(ws);
-        hcon->add(window);
-        ws->add(hcon);
-        updated_con = ws;
+        Layout_container* con = new Horizontal_container(ws);
+        ws->add(con);
+        ws->update_rect(ws->rect());
+        con->accept(place(window));
+    } else {
+        Layout_container* con = (*ws)[0];
+        assert_debug(con, "Not a layout container");
+        con->accept(place(window));
     }
-
-    updated_con->update_rect(updated_con->rect());
 }
 
-void Purge_window::operator ()(Manager<Workspace>& manager) const
+void place::operator()(Layout_container* con) const
 {
-    Workspace* ws = manager.at(window->workspace()->index());
+    logger::debug("place: Visiting layout container");
+    con->add(window);
+    con->update_rect(con->rect());
+}
 
-    Node<Container>* parent      = window->parent();
-    Node<Container>* updated_con = nullptr;
-
-    parent->remove(window);
-
-    if (parent->size() == 0) {
-        updated_con = parent->parent();
-        updated_con->remove(parent);
-        delete parent;
-
-        if (ws->focused() == window)
-            ws->focused(updated_con);
- 
+void purge::operator()(Layout_container* con) const
+{
+    con->remove(window);
+    if (con->empty()) {
+        // OK, let the UB kicks in
+        auto* parent = con->parent();
+        parent->remove(con);
+        delete con;
+        parent->update_rect(parent->rect());
     } else {
-        updated_con = parent;
-        if (ws->focused() == window)
-            ws->focused(*std::prev(parent->end(), 1));
+        con->update_rect(con->rect());
     }
-
-    updated_con->update_rect(updated_con->rect());
 }

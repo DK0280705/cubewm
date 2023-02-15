@@ -3,7 +3,7 @@
 #include "node.h"
 #include "container.h"
 
-class Monitor : public Node<Container>
+class Monitor : public Node_box<Container>
               , public Managed
 {
 public:
@@ -11,6 +11,5 @@ public:
         : Managed(id)
     {}
 
-    void update_focus()                    override;
     void update_rect(const Vector2D& rect) override;
 };

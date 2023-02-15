@@ -1,12 +1,84 @@
 #include "x11.h"
 #include "atom.h"
+#include "constant.h"
+#include "extension.h"
 #include "window.h"
+#include "../config.h"
 #include "../connection.h"
+#include "../logger.h"
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <chrono>
+#include <thread>
 
 namespace X11 {
 static Connection* _pconn = nullptr;
+
+static void acquire_first_timestamp(Connection& conn)
+{
+    // Initiate requests
+    xcb_grab_server(conn);
+    window::change_attributes(conn.xscreen()->root,
+                              XCB_CW_EVENT_MASK,
+                              {{XCB_EVENT_MASK_PROPERTY_CHANGE}});
+    window::change_property(window::prop::append,
+                            conn.xscreen()->root,
+                            XCB_ATOM_SUPERSCRIPT_X,
+                            XCB_ATOM_CARDINAL,
+                            std::span<const uint32_t, 0>{});
+    xcb_ungrab_server(conn);
+
+    xcb_flush(conn);
+
+    xcb_generic_event_t* event = nullptr;
+    while ((event = xcb_wait_for_event(conn)))
+        if ((event->response_type & 0x7F) == XCB_PROPERTY_NOTIFY) {
+            conn.timestamp(((xcb_property_notify_event_t*)event)->time);
+            free(event);
+            return;
+        } else free(event);
+}
+
+static void acquire_selection_owner(const Connection&  conn,
+                                    const xcb_window_t main_window,
+                                    const bool         replace_wm)
+{
+    auto reply = memory::c_own<xcb_get_selection_owner_reply_t>(
+        xcb_get_selection_owner_reply(
+            conn, xcb_get_selection_owner(conn, atom::WM_SN), 0));
+    assert_runtime(!(reply && reply->owner != XCB_NONE && !replace_wm), "Another WM is running (Selection Owner)");
+
+    // This will notify selection clear event on another wm
+    xcb_set_selection_owner(conn, main_window, atom::WM_SN, conn.timestamp());
+
+    // Wait for another wm to exit
+    if (reply->owner != XCB_NONE) {
+        unsigned int check_times = 10;
+        while (true) {
+            logger::info("Waiting for another WM to exit: {}", check_times);
+
+            auto* greply = xcb_get_geometry_reply(
+                conn, xcb_get_geometry(conn, reply->owner), 0);
+            if (greply) free(greply);
+            else break;
+
+            assert_runtime(check_times-- != 0, "Timeout reached");
+
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(2s); // It's clear, sleep for 10 seconds
+        }
+    }
+
+    // Announce that we're the new selection owner
+    const xcb_client_message_event_t event = {
+        .response_type = XCB_CLIENT_MESSAGE,
+        .format        = 32,
+        .window        = conn.xscreen()->root,
+        .type          = atom::MANAGER,
+        .data = {.data32 = {conn.timestamp(), atom::WM_SN, main_window}}};
+
+    xcb_send_event(conn, 0, conn.xscreen()->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
+}
 
 static void setup_hints(const Connection& conn, const xcb_window_t main_window)
 {
@@ -86,7 +158,24 @@ void init(Connection& conn)
     _pconn = &conn;
     
     atom::init();
+
+    acquire_first_timestamp(conn);
+    logger::debug("First timestamp: {}", conn.timestamp());
+
     const xcb_window_t main_window = setup_main_window(conn);
+    acquire_selection_owner(conn, main_window, config::replace_wm);
+    logger::debug("Selection owner acquired");
+
+    try {
+        window::change_attributes_c(conn.xscreen()->root,
+                                    XCB_CW_EVENT_MASK,
+                                    {{constant::ROOT_EVENT_MASK}});
+    } catch(const std::runtime_error& err) {
+        // Rethrow with different message
+        throw std::runtime_error("Another WM is running (X Server)");
+    }
+
+    extension::init();
     setup_hints(conn, main_window);
 }
 

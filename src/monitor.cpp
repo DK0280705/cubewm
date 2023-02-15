@@ -1,9 +1,5 @@
 #include "monitor.h"
 
-void Monitor::update_focus()
-{
-}
-
 void Monitor::update_rect(const Vector2D& rect)
 {
     Container::update_rect(rect);

@@ -1,8 +1,11 @@
 #include "container.h"
 #include "logger.h"
 
-void Layout_container::update_focus()
+static inline int _fraction(std::size_t size, float length)
 {
+    const float frac = 1.0f / static_cast<float>(size);
+    return (int)std::round(frac * length);
+
 }
 
 void Horizontal_container::update_rect(const Vector2D& rect)
@@ -11,10 +14,8 @@ void Horizontal_container::update_rect(const Vector2D& rect)
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
     Container::update_rect(rect);
 
-    int next_pos_x         = rect.pos.x;
-    const float multiplier = 1.0f / static_cast<float>(size());
-    const int f_width      = (uint32_t)std::round(multiplier * (float)rect.size.x);
-
+    int next_pos_x    = rect.pos.x;
+    const int f_width = _fraction(size(), (float)rect.size.x); 
     for (const auto& child : _children) {
         child->update_rect({
             { next_pos_x, rect.pos.y  },
@@ -31,9 +32,7 @@ void Vertical_container::update_rect(const Vector2D& rect)
     Container::update_rect(rect);
 
     int next_pos_y         = rect.pos.y;
-    const float multiplier = 1.0f / static_cast<float>(size());
-    const int f_height     = (uint32_t)std::round(multiplier * (float)rect.size.x);
-
+    const int f_height     = _fraction(size(), (float)rect.size.y);
     for (const auto& child : _children) {
         child->update_rect({
             { rect.pos.x, next_pos_y }, 

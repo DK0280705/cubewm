@@ -35,7 +35,6 @@ class Window : public ::Window
 public:
     Window(Managed_id id);
 
-    void update_focus() override;
     void update_rect(const Vector2D& rect) override;
 private:
     void _fetch_name();
@@ -45,3 +44,5 @@ private:
 };
 
 }
+
+

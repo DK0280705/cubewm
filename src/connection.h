@@ -6,6 +6,7 @@
  */
 #include "helper.h"
 
+typedef uint32_t xcb_timestamp_t;
 struct xcb_connection_t;
 struct xcb_screen_t;
 
@@ -19,6 +20,7 @@ class Connection
     int               _scr_id;
     xcb_connection_t* _conn;
     xcb_screen_t*     _screen;
+    xcb_timestamp_t   _timestamp;
 
 protected:
     Connection();
@@ -31,8 +33,14 @@ public:
     const xcb_screen_t* xscreen() const
     { return _screen; }
 
-    const int scr_id() const
+    int scr_id() const
     { return _scr_id; }
+
+    uint32_t timestamp() const
+    { return _timestamp; }
+
+    void timestamp(uint32_t ts)
+    { _timestamp = ts; }
 
     virtual ~Connection();
 };

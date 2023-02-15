@@ -45,6 +45,7 @@ auto get_attribute(uint32_t window_id)
 auto get_geometry(uint32_t window_id)
     -> memory::c_owner<xcb_get_geometry_reply_t>;
 
+namespace detail {
 void _cpc_impl(const window::prop mode,
                const uint32_t     wind,
                const uint8_t      prop,
@@ -60,8 +61,8 @@ void _cp_impl(const window::prop mode,
               const uint8_t      form,
               const uint32_t     size,
               const void*        data);
+}
 
-namespace {
 template <typename T, size_t N>
 inline void change_property_c(const window::prop mode,
                               const uint32_t     wind,
@@ -70,7 +71,7 @@ inline void change_property_c(const window::prop mode,
                               std::span<T, N>    data)
 {
     constexpr int format = prop_size<T>(); 
-    _cpc_impl(mode, wind, prop, type, format, data.size(), data.data());
+    detail::_cpc_impl(mode, wind, prop, type, format, data.size(), data.data());
 }
 
 template <typename T, size_t N>
@@ -81,8 +82,12 @@ inline void change_property(const window::prop mode,
                             std::span<T, N>    data)
 {
     constexpr int format = prop_size<T>(); 
-    _cp_impl(mode, wind, prop, type, format, data.size(), data.data());
+    detail::_cp_impl(mode, wind, prop, type, format, data.size(), data.data());
 }
-} // inline namespace
+
+
+void change_attributes(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data);
+void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data);
+
 } // namespace window
 } // namespace X11

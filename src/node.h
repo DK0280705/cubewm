@@ -2,8 +2,18 @@
 #include "helper.h"
 #include <list>
 
+// Forward decl
+template <typename T> class Node_box;
+
 template <typename T>
-class Node : public T
+concept Node = requires(T& t, Node_box<T>* p)
+{
+    { t.parent() } -> std::same_as<Node_box<T>*>;
+    { t.parent(p) };
+};
+
+template <typename T>
+class Node_box : public T
 {
 public:
     using Iterator       = typename std::list<T*>::iterator;
@@ -32,6 +42,8 @@ public:
     { return _children.cend(); }
 
 public:
+    Node_box() requires Node<T> = default;
+
     void add(T* con)
     {
         con->parent(this);
@@ -56,11 +68,11 @@ public:
         _children.splice(it_pos, _children, position);
     }
 
-    virtual ~Node() {}
+    virtual ~Node_box() {}
 };
 
 template <typename T>
-void transfer_to(Node<T>* to, T* obj)
+void transfer_to(Node_box<T>* to, T* obj)
 {
     assert_debug(obj->parent(), "obj is an orphan");
     obj->parent()->remove(obj);

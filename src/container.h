@@ -11,47 +11,44 @@ class Workspace;
 
 class Container
 {
-    Vector2D         _rect;
-    Node<Container>* _parent;
+    Vector2D             _rect;
+    Node_box<Container>* _parent;
 
 public:
     inline const Vector2D& rect() const
     { return _rect; }
 
-    inline Node<Container>* parent() const
+public: // Node<T> implementation
+    inline Node_box<Container>* parent() const
     { return _parent; }
 
-    inline void parent(Node<Container>* parent)
+    inline void parent(Node_box<Container>* parent)
     { _parent = parent; }
 
 public:
     virtual void update_rect(const Vector2D& rect)
     { _rect = rect; }
 
-    virtual void update_focus() = 0;
-
     virtual ~Container() {}
 };
 
-class Layout_container : public Node<Container>
+class Layout_container : public Node_box<Container>
+                       , public Visit<Layout_container>
 {
     Workspace* _ws;
-    std::vector<Container*> _focus_stack;
 
 public:
     inline Workspace* workspace() const
     { return _ws; }
 
-    inline void add_focus(Container* con)
-    { _focus_stack.push_back(con); }
+    inline void workspace(Workspace* ws)
+    { _ws = ws; }
 
 public:
     Layout_container(Workspace* ws) noexcept
         : _ws(ws)
     {}
     
-    void update_focus() override;
-
     virtual ~Layout_container()
     { for (const auto& c : _children) delete c; };
 };

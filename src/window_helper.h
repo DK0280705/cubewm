@@ -2,14 +2,24 @@
 #include "workspace.h"
 class Window;
 
-struct Place_window
+struct place
 {
     Window* window;
-    void operator ()(Manager<Workspace>& manager) const;
+    bool    create_new;
+    place(Window* window, bool create_new = false) noexcept
+        : window(window)
+        , create_new(create_new)
+    {}
+
+    void operator()(Workspace* ws) const;
+    void operator()(Layout_container* con) const;
 };
 
-struct Purge_window
+struct purge
 {
     Window* window;
-    void operator ()(Manager<Workspace>& manager) const;
+    purge(Window* window) noexcept
+        : window(window)
+    {}
+    void operator()(Layout_container* con) const;
 };

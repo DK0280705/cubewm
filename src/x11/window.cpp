@@ -20,10 +20,6 @@ Window::Window(Managed_id id)
     _fetch_class();
 }
 
-void Window::update_focus()
-{
-}
-
 void Window::update_rect(const Vector2D& rect)
 {
     Container::update_rect(rect);
@@ -161,19 +157,18 @@ bool manageable(uint32_t window_id, bool mapped)
 
 }
 
-static Span_dynamic<xcb_window_t> all()
+static std::span<xcb_window_t> all()
 {
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::_conn(),
             xcb_query_tree(X11::_conn(), X11::_conn().xscreen()->root), 0));
     xcb_window_t* windows = xcb_query_tree_children(query.get());
-    return Span_dynamic<xcb_window_t>(windows, xcb_query_tree_children_length(query.get()));
+    return std::span<xcb_window_t>{windows, (uint64_t)xcb_query_tree_children_length(query.get())};
 }
 
 void load_all(State& state)
 {
-    Manager<::Workspace>& wor_mgr = state.manager<::Workspace>();
-    Manager<::Window>&    win_mgr = state.manager<::Window>();
+    Manager<::Window>& win_mgr = state.manager<::Window>();
     for (const auto& w_id : all()) {
         if (win_mgr.is_managed(w_id)) continue;
         if (!manageable(w_id, true)) continue;
@@ -181,9 +176,7 @@ void load_all(State& state)
         
         ::Workspace* ws = load_workspace(state, dynamic_cast<X11::Window*>(window));
 
-        window->workspace(ws);
-
-        wor_mgr.accept(Place_window{window});
+        ws->accept(place(window));
     }
 }
 
@@ -231,6 +224,13 @@ auto get_geometry(uint32_t window_id)
         0));
 }
 
+static void check_error(const xcb_void_cookie_t& cookie)
+{
+    auto reply = memory::c_own(xcb_request_check(X11::_conn(), cookie));
+    assert_runtime(!reply, "Change property failed");
+}
+
+namespace detail {
 void _cpc_impl(const window::prop mode,
                const uint32_t     wind,
                const uint8_t      prop,
@@ -239,11 +239,9 @@ void _cpc_impl(const window::prop mode,
                const uint32_t     size,
                const void*        data)
 {
-    auto cookie = xcb_change_property_checked(
+    check_error(xcb_change_property_checked(
         X11::_conn(), static_cast<uint8_t>(mode),
-        wind, prop, type, form, size, data);
-    auto reply = memory::c_own(xcb_request_check(X11::_conn(), cookie));
-    assert_runtime(!reply, "Change property failed");
+        wind, prop, type, form, size, data));
 }
 void _cp_impl(const window::prop mode,
               const uint32_t     wind,
@@ -256,6 +254,17 @@ void _cp_impl(const window::prop mode,
     xcb_change_property(
         X11::_conn(), static_cast<uint8_t>(mode),
         wind, prop, type, form, size, data);
+}
+} // namespace detail
+
+void change_attributes(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data)
+{
+    xcb_change_window_attributes(X11::_conn(), wind, mask, data.data());
+}
+
+void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data)
+{
+    check_error(xcb_change_window_attributes_checked(X11::_conn(), wind, mask, data.data()));
 }
 
 } // namespace window

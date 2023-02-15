@@ -80,7 +80,7 @@ void Event_handler_impl::_on_unmap_notify(const xcb_unmap_notify_event_t& event)
     }
     ::Window* win = win_mgr.at(event.window);
 
-    _state.manager<::Workspace>().accept(Purge_window{ win });
+    dynamic_cast<Layout_container*>(win->parent())->accept(purge(win));
 
     win_mgr.unmanage(event.window);
     delete win;
@@ -101,9 +101,7 @@ void Event_handler_impl::_on_map_request(const xcb_map_request_event_t& event)
         return;
 
     Window* win = win_mgr.manage<X11::Window>(event.window);
-   
-    win->workspace(wor_mgr.current());
-    wor_mgr.accept(Place_window{ win });
+    wor_mgr.current()->accept(place(win));
 
     // Set focus
 }
