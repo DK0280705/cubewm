@@ -2,8 +2,8 @@
 
 struct Point2D
 {
-    int x;
-    int y;
+    int x = 0;
+    int y = 0;
 };
 
 struct Vector2D

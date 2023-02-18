@@ -1,6 +1,10 @@
 #pragma once
-#include "workspace.h"
+#include <stdexcept>
+
+class Container;
 class Window;
+class Workspace;
+class Layout_container;
 
 struct place
 {
@@ -11,8 +15,8 @@ struct place
         , create_new(create_new)
     {}
 
-    void operator()(Workspace* ws) const;
-    void operator()(Layout_container* con) const;
+    void operator()(Workspace& ws) const;
+    void operator()(Layout_container& con) const;
 };
 
 struct purge
@@ -21,5 +25,6 @@ struct purge
     purge(Window* window) noexcept
         : window(window)
     {}
-    void operator()(Layout_container* con) const;
+
+    void operator()(Layout_container& con) const;
 };

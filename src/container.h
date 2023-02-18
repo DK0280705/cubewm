@@ -2,19 +2,26 @@
 /**
  * Explains the structure of the window manager
  * tiling, stacking, etc...
+ * This is not like the container in STL
+ * The container can be focused or not
  */
 #include "node.h"
 #include "geometry.h"
+#include "visitor.h"
+#include "window_helper.h"
 #include <vector>
 
 class Workspace;
 
-class Container
+class Container : public Visitable<place, purge>
 {
     Vector2D             _rect;
     Node_box<Container>* _parent;
 
 public:
+    VISITABLE_OVERRIDE_BASE(place);
+    VISITABLE_OVERRIDE_BASE(purge);
+
     inline const Vector2D& rect() const
     { return _rect; }
 
@@ -32,8 +39,22 @@ public:
     virtual ~Container() {}
 };
 
+class Focusable
+{
+protected:
+    bool _focused = false;
+
+public:
+    inline bool focused() const
+    { return _focused; }
+
+public:
+    virtual void focus() = 0;
+    virtual void unfocus() = 0;
+};
+
 class Layout_container : public Node_box<Container>
-                       , public Visit<Layout_container>
+                       , public Focusable
 {
     Workspace* _ws;
 
@@ -45,10 +66,16 @@ public:
     { _ws = ws; }
 
 public:
+    VISITABLE_OVERRIDE(place);
+    VISITABLE_OVERRIDE(purge);
     Layout_container(Workspace* ws) noexcept
         : _ws(ws)
     {}
-    
+   
+    // For now, let's override here 
+    void focus() override {}
+    void unfocus() override {}
+
     virtual ~Layout_container()
     { for (const auto& c : _children) delete c; };
 };

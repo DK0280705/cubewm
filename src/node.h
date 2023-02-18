@@ -53,7 +53,8 @@ public:
     void remove(T* con)
     {
         con->parent(nullptr);
-        _children.remove(con);
+        auto it = std::find(_children.begin(), _children.end(), con);
+        _children.erase(it);
     }
 
     void insert(Const_iterator position, T* con)

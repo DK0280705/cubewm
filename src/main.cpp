@@ -2,7 +2,6 @@
 #include "config.h"
 #include "logger.h"
 #include "server.h"
-#include "x11/x11.h"
 #include <array>
 #include <getopt.h>
 

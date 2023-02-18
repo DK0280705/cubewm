@@ -1,5 +1,6 @@
 #include "x11.h"
 #include "atom.h"
+#include "constant.h"
 #include "window.h"
 #include "../connection.h"
 #include "../state.h"
@@ -14,6 +15,8 @@ namespace X11 {
 Window::Window(Managed_id id)
     : ::Window(id)
 {
+    uint32_t mask[] = { constant::CHILD_EVENT_MASK & ~XCB_EVENT_MASK_ENTER_WINDOW };
+    window::change_attributes(id, XCB_CW_EVENT_MASK, mask);
     _fetch_name();
     _fetch_type();
     _fetch_role();
@@ -38,6 +41,22 @@ void Window::update_rect(const Vector2D& rect)
     xcb_configure_window(X11::_conn(), index(), mask, values); // NOLINT
 }
 
+void Window::focus()
+{
+    assert(!_focused);
+    xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, index(),
+                        X11::_conn().timestamp());
+    _focused = true;
+}
+
+void Window::unfocus()
+{
+    assert(_focused);
+    xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE,
+                        X11::_conn().timestamp());
+    _focused = false;
+}
+
 void Window::_fetch_name()
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
@@ -52,6 +71,7 @@ void Window::_fetch_name()
     _name = std::string(
         reinterpret_cast<char*>(xcb_get_property_value(prop.get())),
         xcb_get_property_value_length(prop.get()));
+    logger::debug("name: {}", _name);
 }
 
 void Window::_fetch_type()
@@ -83,6 +103,7 @@ void Window::_fetch_type()
             atoms[i] == X11::atom::_NET_WM_WINDOW_TYPE_TOOLTIP ||
             atoms[i] == X11::atom::_NET_WM_WINDOW_TYPE_NOTIFICATION) {
             _type = atoms[i];
+            logger::debug("type: {}", _type);
             return;
         }
 }
@@ -101,7 +122,7 @@ void Window::_fetch_role()
     _role = std::string(
         reinterpret_cast<char*>(xcb_get_property_value(prop.get())),
         xcb_get_property_value_length(prop.get()));
-
+    logger::debug("role: {}", _role);
 }
 
 void Window::_fetch_class()
@@ -110,7 +131,7 @@ void Window::_fetch_class()
         xcb_get_property_reply(
             X11::_conn(),
             xcb_get_property(X11::_conn(), false, index(),
-                             X11::atom::WM_WINDOW_ROLE,
+                             XCB_ATOM_WM_CLASS,
                              XCB_GET_PROPERTY_TYPE_ANY, 0, 128),
             nullptr));
     if (!prop) return;
@@ -127,12 +148,13 @@ void Window::_fetch_class()
     _instance = (class_index < length)
               ? std::string(prop_str + class_index, length - class_index)
               : "";
+    logger::debug("class: {}, instance: {}", _class, _instance);
 }
 
 
 namespace window {
 
-bool manageable(uint32_t window_id, bool mapped)
+bool manageable(uint32_t window_id, const bool must_be_mapped)
 {
     auto attr = get_attribute(window_id);
    
@@ -141,7 +163,7 @@ bool manageable(uint32_t window_id, bool mapped)
         return false;
     }
 
-    if (mapped && attr->map_state == XCB_MAP_STATE_UNMAPPED) {
+    if (must_be_mapped && attr->map_state == XCB_MAP_STATE_UNMAPPED) {
         logger::debug("Ignoring unmapped window");
         return false;
     }
@@ -157,19 +179,22 @@ bool manageable(uint32_t window_id, bool mapped)
 
 }
 
-static std::span<xcb_window_t> all()
+static auto all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, std::span<xcb_window_t>>
 {
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::_conn(),
             xcb_query_tree(X11::_conn(), X11::_conn().xscreen()->root), 0));
     xcb_window_t* windows = xcb_query_tree_children(query.get());
-    return std::span<xcb_window_t>{windows, (uint64_t)xcb_query_tree_children_length(query.get())};
+    return std::pair(
+        std::move(query),
+        std::span{windows, (uint64_t)xcb_query_tree_children_length(query.get())});
 }
 
 void load_all(State& state)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
-    for (const auto& w_id : all()) {
+    auto pair = all();
+    for (const auto& w_id : pair.second) {
         if (win_mgr.is_managed(w_id)) continue;
         if (!manageable(w_id, true)) continue;
         ::Window* window = win_mgr.manage<X11::Window>(w_id);
@@ -177,6 +202,8 @@ void load_all(State& state)
         ::Workspace* ws = load_workspace(state, dynamic_cast<X11::Window*>(window));
 
         ws->accept(place(window));
+        ws->focus_list().add(window);
+        xcb_map_window(X11::_conn(), window->index());
     }
 }
 

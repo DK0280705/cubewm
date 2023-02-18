@@ -20,3 +20,11 @@ Server::Server(Connection& conn)
     std::signal(SIGTERM, catch_signal);
     std::signal(SIGCHLD, [](int){});
 }
+
+Server::~Server()
+{
+    for (const auto& pair : _state.manager<Workspace>())
+        delete pair.second;
+    for (const auto& pair : _state.manager<Monitor>())
+        delete pair.second;
+}

@@ -8,7 +8,7 @@
 class Connection;
 class State;
 
-class Server : public Visit<Server>
+class Server
 {
 protected:
     State& _state;
@@ -21,6 +21,8 @@ public:
 public:
     virtual void start() = 0;
     virtual void stop()  = 0;
+
+    virtual ~Server();
 
 protected:
     Server(Connection& conn);

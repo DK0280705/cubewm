@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <type_traits>
 #include <span>
-#include <vector>
 
 class State;
 class Workspace;
@@ -34,7 +33,7 @@ static consteval int prop_size()
         return sizeof(T) * 8;
 }
 
-bool manageable(uint32_t window_id, bool mapped);
+bool manageable(uint32_t window_id, const bool must_be_mapped = false);
 
 void load_all(State& state);
 auto load_workspace(State& state, X11::Window* window) -> ::Workspace*;

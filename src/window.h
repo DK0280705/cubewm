@@ -3,6 +3,7 @@
 #include "manager.h"
 
 class Window : public Container
+             , public Focusable
              , public Managed
 {
 protected:
@@ -12,6 +13,7 @@ protected:
 public:
     Window(Managed_id id) noexcept
         : Managed(id)
+        , _ws(nullptr)
     {}
 
     inline Workspace* workspace() const
@@ -36,6 +38,10 @@ public:
     Window(Managed_id id);
 
     void update_rect(const Vector2D& rect) override;
+
+    void focus() override;
+    void unfocus() override;
+
 private:
     void _fetch_name();
     void _fetch_type();

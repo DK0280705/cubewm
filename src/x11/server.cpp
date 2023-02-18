@@ -10,10 +10,15 @@ namespace X11 {
 Server::Server(::Connection& conn)
     : ::Server(conn)
     , _ev(Event_handler::init(_state))
-{
+{   
+    auto& wor_mgr = _state.manager<Workspace>();
+    auto* workspc = wor_mgr.manage(0);
+    wor_mgr.set_current(0);
+
     _state.manager<Monitor>().accept([&](Manager<Monitor>& mgr) {
         if (mgr.empty()) {
             Monitor* mon = mgr.manage(0);
+            mon->add(workspc);
             const Vector2D rect = {
                 { 0, 0 },
                 { conn.xscreen()->width_in_pixels, conn.xscreen()->height_in_pixels }
@@ -28,6 +33,7 @@ Server::Server(::Connection& conn)
 void Server::_main_loop()
 {
     xcb_generic_event_t* event = nullptr;
+    auto _ = finally([&]() { if (event) free(event); });
     const int xcb_fd = xcb_get_file_descriptor(_state.conn());
     fd_set in_fds;
 
@@ -42,6 +48,7 @@ void Server::_main_loop()
         while ((event = xcb_poll_for_event(_state.conn()))) {
             _ev.handle({ event });
             free(event);
+            event = nullptr;
             xcb_flush(_state.conn());
         }
     }

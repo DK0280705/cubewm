@@ -5,6 +5,7 @@
  */
 
 #include "helper.h"
+#include "visitor.h"
 #include <unordered_map>
 
 class Connection;
@@ -28,7 +29,7 @@ public:
 
 template <derived_from<Managed> Managed_t>
 class Manager : public Init_once<Manager<Managed_t>>
-              , public Visit<Manager<Managed_t>>
+              , public Visitable_static<Manager<Managed_t>>
 {
 public:
     using Managed_id        = unsigned int;
@@ -100,7 +101,4 @@ public:
         delete _managed.at(id);
         _managed.erase(id);
     }
-
-    virtual ~Manager()
-    { for (auto& pair : _managed) delete pair.second; }
 };
