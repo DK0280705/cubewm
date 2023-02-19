@@ -44,6 +44,8 @@ auto get_attribute(uint32_t window_id)
 auto get_geometry(uint32_t window_id)
     -> memory::c_owner<xcb_get_geometry_reply_t>;
 
+bool has_proto(uint32_t window_id, uint32_t atom);
+
 namespace detail {
 void _cpc_impl(const window::prop mode,
                const uint32_t     wind,

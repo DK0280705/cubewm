@@ -16,6 +16,9 @@ public:
         , _ws(nullptr)
     {}
 
+    inline std::string_view name() const
+    { return _name; }
+
     inline Workspace* workspace() const
     { return _ws; }
 
@@ -33,6 +36,7 @@ class Window : public ::Window
     std::string _role;
     std::string _class;
     std::string _instance;
+    bool        _take_focus;
 
 public:
     Window(Managed_id id);

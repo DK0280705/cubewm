@@ -7,10 +7,29 @@
 #include "../window_helper.h"
 #include "../logger.h"
 #include <limits>
+#include <algorithm>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
+#include <xcb/xcb_icccm.h>
 
 namespace X11 {
+
+static bool accept_focus(xcb_window_t id)
+{
+    auto prop = memory::c_own<xcb_get_property_reply_t>(
+        xcb_get_property_reply(
+            X11::_conn(),
+            xcb_icccm_get_wm_hints(X11::_conn(), id),
+            nullptr));
+    if (xcb_get_property_value_length(prop.get()))
+        return true;
+    xcb_icccm_wm_hints_t hints;
+    if (xcb_icccm_get_wm_hints_from_reply(&hints, prop.get()))
+        return true;
+    if (hints.flags & XCB_ICCCM_WM_HINT_INPUT)
+        return hints.input;
+    return true;
+}
 
 Window::Window(Managed_id id)
     : ::Window(id)
@@ -21,6 +40,7 @@ Window::Window(Managed_id id)
     _fetch_type();
     _fetch_role();
     _fetch_class();
+    _take_focus = !accept_focus(id) && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
 }
 
 void Window::update_rect(const Vector2D& rect)
@@ -41,18 +61,30 @@ void Window::update_rect(const Vector2D& rect)
     xcb_configure_window(X11::_conn(), index(), mask, values); // NOLINT
 }
 
+static void send_take_focus(xcb_window_t id)
+{
+    const xcb_client_message_event_t event = {
+        .response_type = XCB_CLIENT_MESSAGE,
+        .format = 32,
+        .window = id,
+        .type = X11::atom::WM_PROTOCOLS,
+        .data = { .data32 { X11::atom::WM_TAKE_FOCUS, X11::_conn().timestamp() } }
+    };
+    logger::debug("Sending WM_TAKE_FOCUS to window: {:#x}", id);
+    xcb_send_event(X11::_conn(), false, id, XCB_EVENT_MASK_NO_EVENT, (char*)&event);
+}
+
 void Window::focus()
 {
-    assert(!_focused);
-    xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, index(),
-                        X11::_conn().timestamp());
+    (_take_focus) ? send_take_focus(index())
+                  : (void)xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT,
+                                              index(), X11::_conn().timestamp());
     _focused = true;
 }
 
 void Window::unfocus()
 {
-    assert(_focused);
-    xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, XCB_NONE,
+    xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::_main_window_id(),
                         X11::_conn().timestamp());
     _focused = false;
 }
@@ -89,7 +121,7 @@ void Window::_fetch_type()
     // Return the very first supported atom
     const xcb_atom_t* atoms = reinterpret_cast<xcb_atom_t*>(
         xcb_get_property_value(prop.get()));
-    for (int i = 0;
+    for (std::size_t i = 0;
          i < xcb_get_property_value_length(prop.get()) / sizeof(xcb_atom_t);
          i++)
         if (atoms[i] == X11::atom::_NET_WM_WINDOW_TYPE_NORMAL ||
@@ -150,7 +182,6 @@ void Window::_fetch_class()
               : "";
     logger::debug("class: {}, instance: {}", _class, _instance);
 }
-
 
 namespace window {
 
@@ -249,6 +280,23 @@ auto get_geometry(uint32_t window_id)
             X11::_conn(),
             xcb_get_geometry(X11::_conn(), window_id),
         0));
+}
+
+bool has_proto(uint32_t window_id, uint32_t atom)
+{
+    xcb_icccm_get_wm_protocols_reply_t protocols;
+    if (!xcb_icccm_get_wm_protocols_reply(
+            X11::_conn(),
+            xcb_icccm_get_wm_protocols(X11::_conn(), window_id, X11::atom::WM_PROTOCOLS),
+            &protocols,
+            nullptr))
+        return false;
+    auto _ = finally([&]{
+        xcb_icccm_get_wm_protocols_reply_wipe(&protocols);
+    });
+    
+    auto span = std::span{protocols.atoms, protocols.atoms_len};
+    return std::find(span.begin(), span.end(), atom) != span.end();
 }
 
 static void check_error(const xcb_void_cookie_t& cookie)

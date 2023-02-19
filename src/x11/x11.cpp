@@ -13,6 +13,7 @@
 
 namespace X11 {
 static Connection* _pconn = nullptr;
+static xcb_window_t _main_window = 0;
 
 static void acquire_first_timestamp(Connection& conn)
 {
@@ -162,8 +163,8 @@ void init(Connection& conn)
     acquire_first_timestamp(conn);
     logger::debug("First timestamp: {}", conn.timestamp());
 
-    const xcb_window_t main_window = setup_main_window(conn);
-    acquire_selection_owner(conn, main_window, config::replace_wm);
+    _main_window = setup_main_window(conn);
+    acquire_selection_owner(conn, _main_window, config::replace_wm);
     logger::debug("Selection owner acquired");
 
     try {
@@ -176,7 +177,7 @@ void init(Connection& conn)
     }
 
     extension::init();
-    setup_hints(conn, main_window);
+    setup_hints(conn, _main_window);
 }
 
 Connection& _conn()
@@ -185,5 +186,10 @@ Connection& _conn()
     // This is already stupid, let the application blow up
     // if someone put X11::_conn() before X11::init(conn)
     return *_pconn;
+}
+
+unsigned int _main_window_id() 
+{
+    return _main_window;
 }
 }
