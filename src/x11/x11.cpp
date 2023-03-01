@@ -1,10 +1,12 @@
 #include "x11.h"
 #include "atom.h"
 #include "constant.h"
+#include "event.h"
 #include "extension.h"
 #include "window.h"
 #include "../config.h"
 #include "../connection.h"
+#include "../state.h"
 #include "../logger.h"
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -154,8 +156,9 @@ static xcb_window_t setup_main_window(const Connection& conn)
     return main_window;
 }
 
-void init(Connection& conn)
+void init(::State& state)
 {
+    Connection& conn = state.conn();
     _pconn = &conn;
     
     atom::init();
@@ -166,15 +169,8 @@ void init(Connection& conn)
     _main_window = setup_main_window(conn);
     acquire_selection_owner(conn, _main_window, config::replace_wm);
     logger::debug("Selection owner acquired");
-
-    try {
-        window::change_attributes_c(conn.xscreen()->root,
-                                    XCB_CW_EVENT_MASK,
-                                    {{constant::ROOT_EVENT_MASK}});
-    } catch(const std::runtime_error& err) {
-        // Rethrow with different message
-        throw std::runtime_error("Another WM is running (X Server)");
-    }
+ 
+    event::init(state);
 
     extension::init();
     setup_hints(conn, _main_window);

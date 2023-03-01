@@ -1,34 +1,35 @@
 #include "workspace.h"
+#include "window.h"
 #include "logger.h"
 #include <algorithm>
 
-void Focus_list::add(Focusable* foc, bool focus)
+void Focus_list::add(Window* win, bool focus)
 {
     current() ? current()->focused() ? current()->unfocus()
                                      : void(0) 
               : void(0);
     
-    if (_pos.contains(foc)) {
+    if (_pos.contains(win)) {
         logger::debug("Adding exisiting focus");
-        auto it = std::find(_list.begin(), _list.end(), foc);
+        auto it = std::find(_list.begin(), _list.end(), win);
         _list.splice(_list.end(), _list, it);
     } else {
         logger::debug("Adding new focus");
-        _list.push_back(foc);
-        _pos.insert(foc);
+        _list.push_back(win);
+        _pos.insert(win);
     }
-    if (focus) foc->focus();
+    if (focus) win->focus();
 }
 
-void Focus_list::remove(Focusable* foc)
+void Focus_list::remove(Window* win)
 {
     auto* last = current();
-    if (foc->focused())
-        foc->unfocus();
+    if (win->focused())
+        win->unfocus();
     logger::debug("Removing focus");
-    _list.remove(foc);
-    _pos.erase(foc);
-    if (foc == last && current()) {
+    _list.remove(win);
+    _pos.erase(win);
+    if (win == last && current()) {
         logger::debug("Refocusing last focus");
         add(current());
     }

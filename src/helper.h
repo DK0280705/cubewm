@@ -18,6 +18,8 @@ inline void assert_runtime(const bool expr, const std::string& msg)
 template <typename T, typename U>
 concept derived_from = std::is_base_of<U, T>::value;
 
+// This is not a singleton
+// Just a fancy way to init something statically
 template <typename Derived>
 struct Init_once
 {

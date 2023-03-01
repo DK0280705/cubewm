@@ -30,13 +30,9 @@ protected:
 
 namespace X11 {
 
-class Event_handler;
-
 class Server : public ::Server
              , public Init_once<Server>
 {
-    Event_handler& _ev;
-
 public:
     Server(::Connection& conn);
 

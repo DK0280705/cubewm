@@ -2,8 +2,9 @@
 #include "../state.h"
 #include "../window_helper.h"
 #include "../connection.h"
+#include "constant.h"
 #include "window.h"
-#include "event_handler.h"
+#include "event.h"
 #include "x11.h"
 #include <unordered_set>
 #include <xcb/xproto.h>
@@ -16,59 +17,53 @@ xmacro(DESTROY_NOTIFY, destroy_notify) \
 xmacro(FOCUS_IN, focus_in) \
 xmacro(FOCUS_OUT, focus_out) \
 
-namespace X11 {
+namespace X11::event {
 
-class Event_handler_impl : public Init_once<Event_handler_impl>
-{
-    State&                       _state;
-    std::unordered_set<uint32_t> _ignored_sequences;
+static std::unordered_set<uint32_t> _ignored_sequences;
+static State* _state;
 
-public:
-    Event_handler_impl(State& state)
-        : _state(state)
-    {}
-
-    void handle(const Event& event)
-    {
-        if (_ignored_sequences.contains(event.data->sequence)) {
-            logger::debug("ignoring sequence {}", event.data->sequence);
-            return;
-        }
-        const int type = event.data->response_type & ~0x80;
-        switch (type){
-        #define xmacro(key, name)         \
-        case XCB_##key:                   \
-            logger::debug(#key " event"); \
-            _on_##name (event);           \
-            break;
-        SUPPORTED_EVENTS
-        #undef xmacro
-        default:
-            logger::debug("Unhandled event type: {}", type);
-            break;
-        }
-    }
-
-private:
-#define xmacro(key, name) void _on_##name (const xcb_##name##_event_t& event);
+#define xmacro(key, name) static void _on_##name (const xcb_##name##_event_t& event);
     SUPPORTED_EVENTS
 #undef xmacro
-};
 
-Event_handler::Event_handler(State& state)
-    : _impl(Event_handler_impl::init(state))
+void init(State& state)
 {
+    _state = &state;
+    try {
+        window::change_attributes_c(state.conn().xscreen()->root,
+                                    XCB_CW_EVENT_MASK,
+                                    {{constant::ROOT_EVENT_MASK}});
+    } catch(const std::runtime_error& err) {
+        // Rethrow with different message
+        throw std::runtime_error("Another WM is running (X Server)");
+    }
+
 }
 
-void Event_handler::handle(const Event& event)
+void handle(const Event& event)
 {
-    _impl.handle(event);
+    if (_ignored_sequences.contains(event.data->sequence)) {
+        logger::debug("ignoring sequence {}", event.data->sequence);
+        return;
+    }
+    const int type = event.data->response_type & ~0x80;
+    switch (type){
+    #define xmacro(key, name)         \
+    case XCB_##key:                   \
+        logger::debug(#key " event"); \
+        _on_##name (event);           \
+        break;
+    SUPPORTED_EVENTS
+    #undef xmacro
+    default:
+        logger::debug("Unhandled event type: {}", type);
+        break;
+    }
 }
 
+// Implementations for each event
 
-// Implementations for each events
-
-void Event_handler_impl::_on_destroy_notify(const xcb_destroy_notify_event_t& event)
+void _on_destroy_notify(const xcb_destroy_notify_event_t& event)
 {
     const xcb_unmap_notify_event_t unmap {
         .sequence = event.sequence,
@@ -78,9 +73,9 @@ void Event_handler_impl::_on_destroy_notify(const xcb_destroy_notify_event_t& ev
     _on_unmap_notify(unmap);
 }
 
-void Event_handler_impl::_on_unmap_notify(const xcb_unmap_notify_event_t& event)
+void _on_unmap_notify(const xcb_unmap_notify_event_t& event)
 {
-    Manager<::Window>& win_mgr = _state.manager<::Window>();
+    Manager<::Window>& win_mgr = _state->manager<::Window>();
     if (!win_mgr.is_managed(event.window)) {
         logger::debug("ignoring UnmapNotify event, window: {}", event.window);
         return;
@@ -93,11 +88,11 @@ void Event_handler_impl::_on_unmap_notify(const xcb_unmap_notify_event_t& event)
     win_mgr.unmanage(event.window);
 }
 
-void Event_handler_impl::_on_map_request(const xcb_map_request_event_t& event)
+void _on_map_request(const xcb_map_request_event_t& event)
 {
     _ignored_sequences.insert(event.sequence);
-    Manager<::Window>&    win_mgr = _state.manager<::Window>();
-    Manager<::Workspace>& wor_mgr = _state.manager<::Workspace>();
+    Manager<::Window>&    win_mgr = _state->manager<::Window>();
+    Manager<::Workspace>& wor_mgr = _state->manager<::Workspace>();
 
     if (win_mgr.is_managed(event.window)) {
         logger::debug("ignoring managed window: {}", event.window);
@@ -115,13 +110,13 @@ void Event_handler_impl::_on_map_request(const xcb_map_request_event_t& event)
     win->workspace()->focus_list().add(win);
 }
 
-void Event_handler_impl::_on_focus_in(const xcb_focus_in_event_t& event)
+void _on_focus_in(const xcb_focus_in_event_t& event)
 {
-    auto& wor_mgr = _state.manager<::Workspace>();
-    auto& win_mgr = _state.manager<::Window>();
+    auto& wor_mgr = _state->manager<::Workspace>();
+    auto& win_mgr = _state->manager<::Window>();
     auto* workspc = wor_mgr.current();
     // Update focus if root window received focus in
-    if (event.event == _state.conn().xscreen()->root) {
+    if (event.event == _state->conn().xscreen()->root) {
         logger::debug("Refocusing focused window");
         if (auto* f = workspc->focus_list().current())
             f->focus();
@@ -151,10 +146,10 @@ void Event_handler_impl::_on_focus_in(const xcb_focus_in_event_t& event)
 }
 
 // Only log for debug
-void Event_handler_impl::_on_focus_out(const xcb_focus_out_event_t& event)
+void _on_focus_out(const xcb_focus_out_event_t& event)
 {
 #ifndef NDEBUG
-    auto& win_mgr = _state.manager<::Window>();
+    auto& win_mgr = _state->manager<::Window>();
     std::string_view win_name = win_mgr.is_managed(event.event) ? win_mgr.at(event.event)->name() : "";
     std::string_view detail = [&] {
         switch (event.detail) {
@@ -211,6 +206,6 @@ void Event_handler_impl::_on_focus_out(const xcb_focus_out_event_t& event)
 #endif
 }
 
-} // namespace X11
+} // namespace X11::event
 
 

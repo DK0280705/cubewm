@@ -1,16 +1,17 @@
 #include "../server.h"
 #include "../state.h"
 #include "../connection.h"
-#include "event_handler.h"
+#include "event.h"
 #include "window.h"
+#include "x11.h"
 #include <xcb/xcb.h>
 
 namespace X11 {
 
 Server::Server(::Connection& conn)
     : ::Server(conn)
-    , _ev(Event_handler::init(_state))
-{   
+{
+    X11::init(_state);
     auto& wor_mgr = _state.manager<Workspace>();
     auto* workspc = wor_mgr.manage(0);
     wor_mgr.set_current(0);
@@ -32,8 +33,8 @@ Server::Server(::Connection& conn)
 
 void Server::_main_loop()
 {
-    xcb_generic_event_t* event = nullptr;
-    auto _ = finally([&]() { if (event) free(event); });
+    xcb_generic_event_t* ev = nullptr;
+    auto _ = finally([&]() { if (ev) free(ev); });
     const int xcb_fd = xcb_get_file_descriptor(_state.conn());
     fd_set in_fds;
 
@@ -45,10 +46,10 @@ void Server::_main_loop()
         // Freezes until signal
         select(xcb_fd + 1, &in_fds, nullptr, nullptr, nullptr);
 
-        while ((event = xcb_poll_for_event(_state.conn()))) {
-            _ev.handle({ event });
-            free(event);
-            event = nullptr;
+        while ((ev = xcb_poll_for_event(_state.conn()))) {
+            X11::event::handle({ ev });
+            free(ev);
+            ev = nullptr;
             xcb_flush(_state.conn());
         }
     }

@@ -1,4 +1,5 @@
 #pragma once
+#include "../window.h"
 #include "../helper.h"
 #include <cstddef>
 #include <cstdint>
@@ -12,7 +13,38 @@ struct xcb_get_geometry_reply_t;
 
 namespace X11 {
 class Connection;
-class Window;
+
+// Have a good time with this :)
+class Window : public ::Window
+{
+    using xcb_atom_t = unsigned int;
+    xcb_atom_t  _type;
+    std::string _role;
+    std::string _class;
+    std::string _instance;
+    bool        _alt_focus;
+
+public:
+    inline xcb_atom_t type() const
+    { return _type; }
+
+    inline std::string_view role() const
+    { return _role; }
+
+    inline std::string_view window_class() const
+    { return _class; }
+    
+    inline std::string_view window_instance() const
+    { return _instance; }
+
+public:
+    Window(Managed_id id);
+
+    void update_rect(const Vector2D& rect) override;
+
+    void focus() override;
+    void unfocus() override;
+};
 
 namespace window {
 
@@ -46,22 +78,9 @@ auto get_geometry(uint32_t window_id)
 
 bool has_proto(uint32_t window_id, uint32_t atom);
 
-namespace detail {
-void _cpc_impl(const window::prop mode,
-               const uint32_t     wind,
-               const uint8_t      prop,
-               const uint8_t      type,
-               const uint8_t      form,
-               const uint32_t     size,
-               const void*        data);
-
-void _cp_impl(const window::prop mode,
-              const uint32_t     wind,
-              const uint8_t      prop,
-              const uint8_t      type,
-              const uint8_t      form,
-              const uint32_t     size,
-              const void*        data);
+namespace detail { // No one wants to know about the detail
+void _cpc_impl(const window::prop mode, const uint32_t wind, const uint8_t prop, const uint8_t type, const uint8_t form, const uint32_t size, const void* data);
+void _cp_impl(const window::prop mode, const uint32_t wind, const uint8_t prop, const uint8_t type, const uint8_t form, const uint32_t size, const void* data);
 }
 
 template <typename T, size_t N>

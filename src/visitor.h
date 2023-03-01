@@ -24,7 +24,7 @@ struct Visitable_static
 };
 
 #define VISITABLE_OVERRIDE(Type) \
-    public: virtual void accept(Type&& visitor) override { visitor(*this); }
+    public: void accept(Type&& visitor) override { visitor(*this); }
 
 #define VISITABLE_OVERRIDE_BASE(Type) \
     public: virtual void accept(Type&& visitor) override { throw std::runtime_error("Called base Visitable"); }

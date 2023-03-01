@@ -5,22 +5,23 @@
 #include <unordered_set>
 
 struct place;
+class Window;
 
 class Focus_list
 {
-    std::list<Focusable*>          _list;
-    std::unordered_set<Focusable*> _pos;
+    std::list<Window*>          _list;
+    std::unordered_set<Window*> _pos;
 
 public:
-    inline Focusable* current() const
+    inline Window* current() const
     { return _list.back(); }
 
-    inline bool contains(Focusable* con) const
+    inline bool contains(Window* con) const
     { return _pos.contains(con); }
 
 public:
-    void add(Focusable* foc, bool focus = true);
-    void remove(Focusable* foc);
+    void add(Window* foc, bool focus = true);
+    void remove(Window* foc);
 };
 
 class Workspace : public Node_box<Container>
