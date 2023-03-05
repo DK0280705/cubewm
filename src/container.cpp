@@ -8,16 +8,16 @@ static inline int _fraction(std::size_t size, float length)
 
 }
 
-void Horizontal_container::update_rect(const Vector2D& rect)
+void Horizontal_container::update_rect()
 {
+    const auto& rect = this->rect();
     logger::debug("Updating Horizontal rect -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
-    Container::update_rect(rect);
 
     int next_pos_x    = rect.pos.x;
     const int f_width = _fraction(size(), (float)rect.size.x); 
     for (const auto& child : _children) {
-        child->update_rect({
+        child->rect({
             { next_pos_x, rect.pos.y  },
             { f_width,    rect.size.y }
         });
@@ -25,16 +25,16 @@ void Horizontal_container::update_rect(const Vector2D& rect)
     }
 }
 
-void Vertical_container::update_rect(const Vector2D& rect)
+void Vertical_container::update_rect()
 {
+    const auto& rect = this->rect();
     logger::debug("Updating Vertical rect -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
-    Container::update_rect(rect);
 
     int next_pos_y         = rect.pos.y;
     const int f_height     = _fraction(size(), (float)rect.size.y);
     for (const auto& child : _children) {
-        child->update_rect({
+        child->rect({
             { rect.pos.x, next_pos_y }, 
             { rect.size.x, f_height  }
         });
@@ -42,14 +42,15 @@ void Vertical_container::update_rect(const Vector2D& rect)
     }
 }
 
-void Tabbed_container::update_rect(const Vector2D& rect)
+void Tabbed_container::update_rect()
 {
+    const auto& rect = this->rect();
     logger::debug("Updating Vertical rect -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
-    Container::update_rect(rect);
+
     // Reduce height by tab size
     for (const auto& child : _children) {
-        child->update_rect(rect);
+        child->rect(rect);
     }
 }
 

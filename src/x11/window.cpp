@@ -142,9 +142,9 @@ Window::Window(Managed_id id)
               && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
 }
 
-void Window::update_rect(const Vector2D& rect)
+void Window::update_rect()
 {
-    Container::update_rect(rect);
+    const auto& rect = this->rect();
     constexpr static uint16_t mask = XCB_CONFIG_WINDOW_X
                                    | XCB_CONFIG_WINDOW_Y
                                    | XCB_CONFIG_WINDOW_WIDTH

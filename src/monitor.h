@@ -11,5 +11,5 @@ public:
         : Managed(id)
     {}
 
-    void update_rect(const Vector2D& rect) override;
+    void update_rect() override;
 };

@@ -24,7 +24,7 @@ Server::Server(::Connection& conn)
                 { 0, 0 },
                 { conn.xscreen()->width_in_pixels, conn.xscreen()->height_in_pixels }
             };
-            mon->update_rect(rect);
+            mon->rect(rect);
         }
     });
 

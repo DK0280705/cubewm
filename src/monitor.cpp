@@ -1,8 +1,8 @@
 #include "monitor.h"
 
-void Monitor::update_rect(const Vector2D& rect)
+void Monitor::update_rect()
 {
-    Container::update_rect(rect);
-    for (const auto& lcon : _children)
-        lcon->update_rect(rect);
+    // Should count for dockarea rect
+    for (const auto& ws : _children)
+        ws->rect(rect());
 }

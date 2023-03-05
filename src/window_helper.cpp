@@ -14,7 +14,7 @@ void place::operator()(Workspace& ws) const
         // Maybe i will add a config to change default container
         Layout_container* con = new Horizontal_container(&ws);
         ws.add(con);
-        ws.update_rect(ws.rect());
+        ws.update_rect();
         con->accept(place(window));
     } else {
         Layout_container* con = ws[0];
@@ -27,7 +27,7 @@ void place::operator()(Layout_container& con) const
 {
     logger::debug("place: Visiting layout container");
     con.add(window);
-    con.update_rect(con.rect());
+    con.update_rect();
 }
 
 void purge::operator()(Layout_container& con) const
@@ -38,8 +38,8 @@ void purge::operator()(Layout_container& con) const
         auto* parent = con.parent();
         parent->remove(&con);
         delete &con;
-        parent->update_rect(parent->rect());
+        parent->update_rect();
     } else {
-        con.update_rect(con.rect());
+        con.update_rect();
     }
 }

@@ -35,11 +35,11 @@ void Focus_list::remove(Window* win)
     }
 }
 
-void Workspace::update_rect(const Vector2D& rect)
+void Workspace::update_rect()
 {
+    const auto& rect = this->rect();
     logger::debug("Updating Workspace rect -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
-    Container::update_rect(rect);
     for (const auto& lcon : _children)
-        lcon->update_rect(rect);
+        lcon->rect(rect);
 }

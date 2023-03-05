@@ -24,6 +24,12 @@ public:
     inline const Vector2D& rect() const
     { return _rect; }
 
+    inline void rect(const Vector2D& rect)
+    { 
+        _rect = rect;
+        update_rect();
+    }
+
 public: // Node<T> implementation
     inline Node_box<Container>* parent() const
     { return _parent; }
@@ -32,8 +38,7 @@ public: // Node<T> implementation
     { _parent = parent; }
 
 public:
-    virtual void update_rect(const Vector2D& rect)
-    { _rect = rect; }
+    virtual void update_rect() = 0;
 
     virtual ~Container() {}
 };
@@ -67,7 +72,7 @@ public:
         : Layout_container(ws)
     {}
 
-    void update_rect(const Vector2D& rect) override;
+    void update_rect() override;
 }; 
 
 class Vertical_container : public Layout_container
@@ -77,7 +82,7 @@ public:
         : Layout_container(ws)
     {}
 
-    void update_rect(const Vector2D& rect) override;
+    void update_rect() override;
 };
 
 class Tabbed_container : public Layout_container
@@ -87,6 +92,6 @@ public:
         : Layout_container(ws)
     {}
 
-    void update_rect(const Vector2D& rect) override;
+    void update_rect() override;
 };
 

@@ -42,7 +42,7 @@ public:
     { return dynamic_cast<Layout_container*>(*std::next(_children.begin(), index)); }
 
 public:
-    void update_rect(const Vector2D& rect) override;
+    void update_rect() override;
 
     ~Workspace() override
     { for (const auto& c : _children) delete c; }
