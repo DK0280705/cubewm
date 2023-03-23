@@ -4,7 +4,6 @@
 #include "window.h"
 #include "../connection.h"
 #include "../state.h"
-#include "../window_helper.h"
 #include "../logger.h"
 #include <limits>
 #include <algorithm>
@@ -101,7 +100,7 @@ static void _fetch_class_and_instance(const xcb_window_t window_id,
         xcb_get_property_value(prop.get()));
 
     if (!prop_str) throw std::runtime_error("Cannot get window class");
-    
+
     const std::size_t prop_length  = xcb_get_property_value_length(prop.get());
     const std::size_t class_length = strnlen(prop_str, prop_length) + 1;
 
@@ -113,12 +112,12 @@ static void _fetch_class_and_instance(const xcb_window_t window_id,
     logger::debug("class: {}, instance: {}", window_class, window_instance);
 }
 
-static bool _is_alt_focus(const xcb_window_t id)
+static bool _is_alt_focus(const xcb_window_t window_id)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
             X11::_conn(),
-            xcb_icccm_get_wm_hints(X11::_conn(), id),
+            xcb_icccm_get_wm_hints(X11::_conn(), window_id),
             nullptr));
     if (xcb_get_property_value_length(prop.get())) return true;
 
@@ -132,20 +131,26 @@ static bool _is_alt_focus(const xcb_window_t id)
 Window::Window(Managed_id id)
     : ::Window(id)
 {
-    uint32_t mask[] = { constant::CHILD_EVENT_MASK & ~XCB_EVENT_MASK_ENTER_WINDOW };
+    uint32_t mask[] = { constant::CHILD_EVENT_MASK };
     window::change_attributes(id, XCB_CW_EVENT_MASK, mask);
     window::_fetch_type(id, _type);
     window::_fetch_name(id, _name);
     window::_fetch_role(id, _role);
     window::_fetch_class_and_instance(id, _class, _instance);
     _alt_focus = !window::_is_alt_focus(id)
-              && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
+               && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
+    auto geo = window::get_geometry(id);
+    xcb_pixmap_t pixmap = xcb_generate_id(X11::_conn());
+    xcb_create_pixmap(X11::_conn(), X11::_conn().xscreen()->root_depth, pixmap,
+                      X11::_conn().xscreen()->root, geo->width, geo->height);
+    _frame = std::make_unique<X11::Window_frame>(this);
+    xcb_flush(X11::_conn());
 }
 
 void Window::update_rect()
 {
     const auto& rect = this->rect();
-    constexpr static uint16_t mask = XCB_CONFIG_WINDOW_X
+    static constexpr uint16_t mask = XCB_CONFIG_WINDOW_X
                                    | XCB_CONFIG_WINDOW_Y
                                    | XCB_CONFIG_WINDOW_WIDTH
                                    | XCB_CONFIG_WINDOW_HEIGHT;
@@ -185,6 +190,33 @@ void Window::unfocus()
     xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::_main_window_id(),
                         X11::_conn().timestamp());
     _focused = false;
+}
+
+Window_frame::Window_frame(Window* window)
+    : ::Window_frame(xcb_generate_id(X11::_conn()), window)
+{
+    const uint32_t mask = XCB_CW_BACK_PIXEL
+                        | XCB_CW_BORDER_PIXEL
+                        | XCB_CW_OVERRIDE_REDIRECT
+                        | XCB_CW_EVENT_MASK;
+    const uint32_t values[] = {
+        X11::_conn().xscreen()->black_pixel,
+        X11::_conn().xscreen()->black_pixel,
+        1,
+        constant::FRAME_EVENT_MASK
+    };
+    xcb_create_window(X11::_conn(), XCB_COPY_FROM_PARENT, index(), X11::_conn().xscreen()->root,
+                      window->rect().pos.x, window->rect().pos.y, window->rect().size.x, window->rect().size.y,
+                      // Draw border later
+                      0, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,  
+                      mask, values);
+    window::change_property(window::prop::replace, index(), XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, std::span{constant::FRAME_CLASS_NAME});
+    logger::debug("Created X11 frame window {:#x}", index());
+
+    window->busy(true);
+    xcb_reparent_window(X11::_conn(), window->index(), index(), 0, 0);
+
+    xcb_map_window(X11::_conn(), index());
 }
 
 namespace window {
@@ -236,13 +268,13 @@ void load_all(State& state)
         
         ::Workspace* ws = load_workspace(state, dynamic_cast<X11::Window*>(window));
 
-        ws->accept(place(window));
-        ws->focus_list().add(window);
+        place_to(ws, window);
+        ws->window_list().add(window);
         xcb_map_window(X11::_conn(), window->index());
     }
 }
 
-static uint32_t fetch_workspace(uint32_t window_id)
+static uint32_t _fetch_workspace(uint32_t window_id)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
@@ -258,10 +290,10 @@ static uint32_t fetch_workspace(uint32_t window_id)
 }
 
 
-auto load_workspace(State& state, X11::Window* window) -> ::Workspace*
+Workspace* load_workspace(State& state, X11::Window* window)
 {
-    const uint32_t ws_id          = fetch_workspace(window->index());
-    Manager<::Workspace>& wor_mgr = state.manager<::Workspace>(); 
+    const auto ws_id = _fetch_workspace(window->index());
+    auto& wor_mgr    = state.manager<Workspace>(); 
 
     return (wor_mgr.is_managed(ws_id)) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
 }
@@ -303,7 +335,7 @@ bool has_proto(uint32_t window_id, uint32_t atom)
     return std::find(span.begin(), span.end(), atom) != span.end();
 }
 
-static void check_error(const xcb_void_cookie_t& cookie)
+static void _check_error(const xcb_void_cookie_t& cookie)
 {
     auto reply = memory::c_own(xcb_request_check(X11::_conn(), cookie));
     assert_runtime(!reply, "Change property failed");
@@ -318,7 +350,7 @@ void _cpc_impl(const window::prop mode,
                const uint32_t     size,
                const void*        data)
 {
-    check_error(xcb_change_property_checked(
+    _check_error(xcb_change_property_checked(
         X11::_conn(), static_cast<uint8_t>(mode),
         wind, prop, type, form, size, data));
 }
@@ -343,7 +375,7 @@ void change_attributes(const uint32_t wind, const uint32_t mask, std::span<const
 
 void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data)
 {
-    check_error(xcb_change_window_attributes_checked(X11::_conn(), wind, mask, data.data()));
+    _check_error(xcb_change_window_attributes_checked(X11::_conn(), wind, mask, data.data()));
 }
 
 } // namespace window

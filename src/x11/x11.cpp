@@ -1,6 +1,5 @@
 #include "x11.h"
 #include "atom.h"
-#include "constant.h"
 #include "event.h"
 #include "extension.h"
 #include "window.h"
@@ -17,7 +16,7 @@ namespace X11 {
 static Connection* _pconn = nullptr;
 static xcb_window_t _main_window = 0;
 
-static void acquire_first_timestamp(Connection& conn)
+static void _acquire_first_timestamp(Connection& conn)
 {
     // Initiate requests
     xcb_grab_server(conn);
@@ -42,7 +41,7 @@ static void acquire_first_timestamp(Connection& conn)
         } else free(event);
 }
 
-static void acquire_selection_owner(const Connection&  conn,
+static void _acquire_selection_owner(const Connection&  conn,
                                     const xcb_window_t main_window,
                                     const bool         replace_wm)
 {
@@ -83,7 +82,7 @@ static void acquire_selection_owner(const Connection&  conn,
     xcb_send_event(conn, 0, conn.xscreen()->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
 }
 
-static void setup_hints(const Connection& conn, const xcb_window_t main_window)
+static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
 {
     xcb_atom_t supported_atoms[] = {
 #define xmacro(a) atom::a,
@@ -119,7 +118,7 @@ static void setup_hints(const Connection& conn, const xcb_window_t main_window)
     xcb_map_window(conn, main_window);
 }
 
-static xcb_window_t setup_main_window(const Connection& conn)
+static xcb_window_t _setup_main_window(const Connection& conn)
 {
     xcb_window_t main_window = xcb_generate_id(conn);
 
@@ -160,31 +159,31 @@ void init(::State& state)
 {
     Connection& conn = state.conn();
     _pconn = &conn;
-    
+
     atom::init();
 
-    acquire_first_timestamp(conn);
+    _acquire_first_timestamp(conn);
     logger::debug("First timestamp: {}", conn.timestamp());
 
-    _main_window = setup_main_window(conn);
-    acquire_selection_owner(conn, _main_window, config::replace_wm);
+    _main_window = _setup_main_window(conn);
+    _acquire_selection_owner(conn, _main_window, config::replace_wm);
     logger::debug("Selection owner acquired");
- 
+
     event::init(state);
 
     extension::init();
-    setup_hints(conn, _main_window);
+    _setup_hints(conn, _main_window);
 }
 
 Connection& _conn()
 {
     // Nahh if statement is stupid.
     // This is already stupid, let the application blow up
-    // if someone put X11::_conn() before X11::init(conn)
+    // if someone put X11::_conn() before X11::init(state)
     return *_pconn;
 }
 
-unsigned int _main_window_id() 
+unsigned int _main_window_id()
 {
     return _main_window;
 }

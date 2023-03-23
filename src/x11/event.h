@@ -8,7 +8,7 @@ namespace X11 {
 struct Event
 {
     xcb_generic_event_t* data;
-    
+
     template <typename T>
     operator const T() const
     { return *(const T*)data; }

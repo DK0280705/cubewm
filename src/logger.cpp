@@ -3,11 +3,11 @@
 
 namespace logger
 {
-static std::mutex mutex;
+static std::mutex _mutex;
 
 void print(const std::string& msg)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     fmt::print("{}\n", msg); 
 }
 }

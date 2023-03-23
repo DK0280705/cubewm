@@ -1,9 +1,9 @@
 #pragma once
-#include "manager.h"
+#include "managed.h"
 #include "node.h"
 #include "container.h"
 
-class Monitor : public Node_box<Container>
+class Monitor : public Node<Container>
               , public Managed
 {
 public:
@@ -12,4 +12,7 @@ public:
     {}
 
     void update_rect() override;
+
+    ~Monitor() override
+    { for (const auto& ws : *this) delete ws; }
 };

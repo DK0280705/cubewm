@@ -16,7 +16,7 @@ void Horizontal_container::update_rect()
 
     int next_pos_x    = rect.pos.x;
     const int f_width = _fraction(size(), (float)rect.size.x); 
-    for (const auto& child : _children) {
+    for (const auto& child : *this) {
         child->rect({
             { next_pos_x, rect.pos.y  },
             { f_width,    rect.size.y }
@@ -33,7 +33,7 @@ void Vertical_container::update_rect()
 
     int next_pos_y         = rect.pos.y;
     const int f_height     = _fraction(size(), (float)rect.size.y);
-    for (const auto& child : _children) {
+    for (const auto& child : *this) {
         child->rect({
             { rect.pos.x, next_pos_y }, 
             { rect.size.x, f_height  }
@@ -49,7 +49,7 @@ void Tabbed_container::update_rect()
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     // Reduce height by tab size
-    for (const auto& child : _children) {
+    for (const auto& child : *this) {
         child->rect(rect);
     }
 }

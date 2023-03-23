@@ -12,4 +12,6 @@ extern bool xinerama_enabled;
 
 extern bool randr_enabled;
 
+extern unsigned border_size;
+
 }

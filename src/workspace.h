@@ -1,16 +1,20 @@
 #pragma once
 #include "container.h"
-#include "manager.h"
-#include "visitor.h"
+#include "helper.h"
+#include "managed.h"
 #include <unordered_set>
 
 struct place;
 class Window;
 
-class Focus_list
+class Window_list
 {
     std::list<Window*>          _list;
     std::unordered_set<Window*> _pos;
+
+public:
+    using Iterator       = typename decltype(_list)::iterator;
+    using Const_iterator = typename decltype(_list)::const_iterator;
 
 public:
     inline Window* current() const
@@ -19,32 +23,31 @@ public:
     inline bool contains(Window* con) const
     { return _pos.contains(con); }
 
+    DECLARE_ITERATOR_WRAPPER(_list)
+
 public:
-    void add(Window* foc, bool focus = true);
+    void add(Window* foc);
+    void focus(Const_iterator it);
     void remove(Window* foc);
 };
 
-class Workspace : public Node_box<Container>
+class Workspace : public Node<Container>
                 , public Managed
 {
-    Focus_list _focus_list;
+    Window_list _window_list;
 
 public:
-    VISITABLE_OVERRIDE(place);
     Workspace(const Managed_id id) noexcept
         : Managed(id)
     {}
 
-    inline Focus_list& focus_list()
-    { return _focus_list; }
-
-    inline Layout_container* operator[](const int index) const
-    { return dynamic_cast<Layout_container*>(*std::next(_children.begin(), index)); }
+    inline Window_list& window_list()
+    { return _window_list; }
 
 public:
     void update_rect() override;
 
     ~Workspace() override
-    { for (const auto& c : _children) delete c; }
+    { for (const auto& c : *this) delete c; }
 };
 

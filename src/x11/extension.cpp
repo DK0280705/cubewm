@@ -17,7 +17,7 @@ Extension xkb(0, false);
 Extension xrandr(0, false);
 Extension xshape(0, false);
 
-static Extension init_xkb(const Connection& conn)
+static Extension _init_xkb(const Connection& conn)
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_xkb_id);
 
@@ -44,21 +44,19 @@ static Extension init_xkb(const Connection& conn)
     const uint32_t flags = XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE |
                            XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED |
                            XCB_XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
-    auto* client_flags = xcb_xkb_per_client_flags_reply(
+    auto client_flags = memory::c_own(xcb_xkb_per_client_flags_reply(
         conn,
         xcb_xkb_per_client_flags(
             conn, XCB_XKB_ID_USE_CORE_KBD, flags, flags, 0, 0, 0),
-        NULL);
+        NULL));
 
     if (!client_flags || !(client_flags->value & flags))
         logger::error("Could not get xkb client flags");
 
-    if (client_flags) free(client_flags);
-
     return Extension(reply->first_event, reply->present);
 }
 
-static Extension init_xrandr(const Connection& conn)
+static Extension _init_xrandr(const Connection& conn)
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_randr_id);
     if (!reply->present) {
@@ -87,7 +85,7 @@ static Extension init_xrandr(const Connection& conn)
     return Extension(true, reply->first_event);
 }
 
-static Extension init_xshape(const Connection& conn)
+static Extension _init_xshape(const Connection& conn)
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_shape_id);
 
@@ -106,9 +104,9 @@ void init()
 {
     const Connection& conn = X11::_conn();
 
-    xkb = init_xkb(conn);
-    xrandr = init_xrandr(conn);
-    xshape = init_xshape(conn);
+    xkb    = _init_xkb(conn);
+    xrandr = _init_xrandr(conn);
+    xshape = _init_xshape(conn);
 }
 
 }

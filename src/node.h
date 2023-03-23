@@ -1,26 +1,17 @@
 #pragma once
 #include "helper.h"
+#include <concepts>
 #include <list>
 
-// Forward decl
-template <typename T> class Node_box;
-
 template <typename T>
-concept Node = requires(T& t, Node_box<T>* p)
+class Node : public T
 {
-    { t.parent() } -> std::same_as<Node_box<T>*>;
-    { t.parent(p) };
-};
+    std::list<Node<T>*> _children;
+    Node<T>* _parent;
 
-template <typename T>
-class Node_box : public T
-{
 public:
-    using Iterator       = typename std::list<T*>::iterator;
-    using Const_iterator = typename std::list<T*>::const_iterator;
-
-protected:
-    std::list<T*> _children;
+    using Iterator       = typename std::list<Node<T>*>::iterator;
+    using Const_iterator = typename std::list<Node<T>*>::const_iterator;
 
 public:
     inline bool empty() const
@@ -29,35 +20,32 @@ public:
     inline std::size_t size() const
     { return _children.size(); }
 
-    inline Iterator begin()
-    { return _children.begin(); }
-
-    inline Iterator end()
-    { return _children.end(); }
-
-    inline Const_iterator cbegin() const
-    { return _children.cbegin(); }
-
-    inline Const_iterator cend() const
-    { return _children.cend(); }
+    DECLARE_ITERATOR_WRAPPER(_children)
 
 public:
-    Node_box() requires Node<T> = default;
+    inline Node<T>* parent() const
+    { return _parent; }
 
-    void add(T* con)
+    inline void parent(Node<T>* parent)
+    { _parent = parent; }
+
+public:
+    Node() noexcept = default;
+
+    void add(Node<T>* con)
     {
         con->parent(this);
         _children.push_back(con);
     }
 
-    void remove(T* con)
+    void remove(Node<T>* con)
     {
         con->parent(nullptr);
         auto it = std::find(_children.begin(), _children.end(), con);
         _children.erase(it);
     }
 
-    void insert(Const_iterator position, T* con)
+    void insert(Const_iterator position, Node<T>* con)
     {
         con->parent(this);
         _children.insert(position, con);
@@ -68,12 +56,12 @@ public:
         auto it_pos = std::next(position, (shift_pos > 0) ? 1 + shift_pos : shift_pos);
         _children.splice(it_pos, _children, position);
     }
-
-    virtual ~Node_box() {}
+    
+    virtual ~Node() = default;
 };
 
 template <typename T>
-void transfer_to(Node_box<T>* to, T* obj)
+void transfer_to(Node<T>* to, Node<T>* obj)
 {
     assert_debug(obj->parent(), "obj is an orphan");
     obj->parent()->remove(obj);

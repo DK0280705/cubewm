@@ -3,9 +3,7 @@
  * Implements server for running everything
  * Not a god class, *sigh*, don't
  */
-#include "helper.h"
 
-class Connection;
 class State;
 
 class Server
@@ -25,22 +23,5 @@ public:
     virtual ~Server();
 
 protected:
-    Server(Connection& conn);
+    Server(State& state);
 };
-
-namespace X11 {
-
-class Server : public ::Server
-             , public Init_once<Server>
-{
-public:
-    Server(::Connection& conn);
-
-    void start() override;
-    void stop()  override;
-
-private:
-    void _main_loop();
-};
-
-}

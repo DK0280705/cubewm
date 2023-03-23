@@ -1,11 +1,17 @@
+#ifdef USE_WAYLAND
+#include "wayland/server.h"
+#else
+#include "x11/server.h"
+#endif
+
 #include "connection.h"
 #include "config.h"
+#include "state.h"
 #include "logger.h"
-#include "server.h"
 #include <array>
 #include <getopt.h>
 
-static bool parse_arguments(int argc, char* const argv[])
+static bool _parse_arguments(int argc, char* const argv[])
 {
     static constexpr std::array<option, 3> options{{
          {"help", no_argument, 0, 'h'},
@@ -40,7 +46,7 @@ static bool parse_arguments(int argc, char* const argv[])
 
 int main(int argc, char* const argv[])
 {
-    if (!parse_arguments(argc, argv))
+    if (!_parse_arguments(argc, argv))
         return 0;
 
     logger::info("Starting cubewm");
@@ -48,13 +54,16 @@ int main(int argc, char* const argv[])
     try {
         Connection& conn = Connection::init();
 
-        Server& srv = [&] () -> Server& {
+        State& state = State::init(conn);
+
 #ifdef USE_WAYLAND
-            return Wayland::Server::init(conn);
+        using Server_type = typename Wayland::Server;
 #else
-            return X11::Server::init(conn);
+        using Server_type = typename X11::Server;
 #endif
-        } ();
+
+        state.init_server<Server_type>();
+        Server& srv = state.server();
 
         srv.start();
     } catch (const std::runtime_error& err) {

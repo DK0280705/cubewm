@@ -25,16 +25,16 @@ class Window : public ::Window
     bool        _alt_focus;
 
 public:
-    inline xcb_atom_t type() const
+    inline xcb_atom_t type() const noexcept
     { return _type; }
 
-    inline std::string_view role() const
+    inline std::string_view role() const noexcept
     { return _role; }
 
-    inline std::string_view window_class() const
+    inline std::string_view window_class() const noexcept
     { return _class; }
     
-    inline std::string_view window_instance() const
+    inline std::string_view window_instance() const noexcept
     { return _instance; }
 
 public:
@@ -44,6 +44,12 @@ public:
 
     void focus() override;
     void unfocus() override;
+};
+
+class Window_frame : public ::Window_frame
+{
+public:
+    Window_frame(Window* window);
 };
 
 namespace window {

@@ -1,12 +1,19 @@
 #include "../logger.h"
 #include "../state.h"
-#include "../window_helper.h"
 #include "../connection.h"
+#include "atom.h"
 #include "constant.h"
+#include "extension.h"
 #include "window.h"
 #include "event.h"
+#include <csignal>
 #include "x11.h"
 #include <unordered_set>
+#include <algorithm>
+#include <xkbcommon/xkbcommon.h>
+#define explicit _explicit
+#include <xcb/xkb.h>
+#undef explicit
 #include <xcb/xproto.h>
 
 // xmacro(key, name);
@@ -16,6 +23,25 @@ xmacro(UNMAP_NOTIFY, unmap_notify) \
 xmacro(DESTROY_NOTIFY, destroy_notify) \
 xmacro(FOCUS_IN, focus_in) \
 xmacro(FOCUS_OUT, focus_out) \
+xmacro(BUTTON_PRESS, button_press) \
+xmacro(BUTTON_RELEASE, button_release) \
+xmacro(SELECTION_CLEAR, selection_clear)
+
+static void _grab_default_buttons(const xcb_window_t window_id)
+{
+    static constexpr auto buttons = {
+        XCB_BUTTON_INDEX_1,
+        XCB_BUTTON_INDEX_2,
+        XCB_BUTTON_INDEX_3,
+    };
+    xcb_grab_server(X11::_conn());
+    for (const auto b : buttons) {
+        xcb_grab_button(X11::_conn(), 0, window_id,
+                        XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC,
+                        X11::_conn().xscreen()->root, XCB_NONE, b, XCB_BUTTON_MASK_ANY);
+    }
+    xcb_ungrab_server(X11::_conn());
+}
 
 namespace X11::event {
 
@@ -24,6 +50,7 @@ static State* _state;
 
 #define xmacro(key, name) static void _on_##name (const xcb_##name##_event_t& event);
     SUPPORTED_EVENTS
+    xmacro(, xkb_state_notify)
 #undef xmacro
 
 void init(State& state)
@@ -47,6 +74,16 @@ void handle(const Event& event)
         return;
     }
     const int type = event.data->response_type & ~0x80;
+    if (extension::xkb.supported() && type == extension::xkb.event_base()) {
+        switch(event.data->pad0) {
+        case XCB_XKB_STATE_NOTIFY:
+            logger::debug("XKB_STATE_NOTIFY event");
+            return _on_xkb_state_notify(event);
+        default:
+            return;
+        }
+    }
+
     switch (type){
     #define xmacro(key, name)         \
     case XCB_##key:                   \
@@ -81,9 +118,14 @@ void _on_unmap_notify(const xcb_unmap_notify_event_t& event)
         return;
     }
     ::Window* win = win_mgr.at(event.window);
-    auto& focus_list = win->workspace()->focus_list();
-    focus_list.remove(win);
-    win->parent()->accept(purge(win));
+    if (win->busy()) {
+        win->busy(false);
+        return;
+    }
+    auto& window_list = win->workspace()->window_list();
+    window_list.remove(win);
+    purge(win);
+    xcb_change_save_set(_state->conn(), XCB_SET_MODE_DELETE, win->index());
 
     win_mgr.unmanage(event.window);
 }
@@ -91,8 +133,7 @@ void _on_unmap_notify(const xcb_unmap_notify_event_t& event)
 void _on_map_request(const xcb_map_request_event_t& event)
 {
     _ignored_sequences.insert(event.sequence);
-    Manager<::Window>&    win_mgr = _state->manager<::Window>();
-    Manager<::Workspace>& wor_mgr = _state->manager<::Workspace>();
+    Manager<::Window>& win_mgr = _state->manager<::Window>();
 
     if (win_mgr.is_managed(event.window)) {
         logger::debug("ignoring managed window: {}", event.window);
@@ -103,22 +144,25 @@ void _on_map_request(const xcb_map_request_event_t& event)
         return;
 
     ::Window* win = win_mgr.manage<X11::Window>(event.window);
-    wor_mgr.current()->accept(place(win));
+    place_to(_state->current_workspace(), win);
     xcb_map_window(X11::_conn(), win->index());
+    xcb_change_save_set(_state->conn(), XCB_SET_MODE_INSERT, win->index());
 
     // Set focus
-    win->workspace()->focus_list().add(win);
+    auto& window_list = win->workspace()->window_list();
+    window_list.add(win);
+    window_list.focus(std::prev(window_list.end(), 1));
+    _grab_default_buttons(win->index());
 }
 
 void _on_focus_in(const xcb_focus_in_event_t& event)
 {
-    auto& wor_mgr = _state->manager<::Workspace>();
     auto& win_mgr = _state->manager<::Window>();
-    auto* workspc = wor_mgr.current();
     // Update focus if root window received focus in
     if (event.event == _state->conn().xscreen()->root) {
+        auto* workspc = _state->current_workspace();
         logger::debug("Refocusing focused window");
-        if (auto* f = workspc->focus_list().current())
+        if (auto* f = workspc->window_list().current())
             f->focus();
     }
 
@@ -138,11 +182,12 @@ void _on_focus_in(const xcb_focus_in_event_t& event)
     }
 
     ::Window* win = win_mgr.at(event.event);
-    if (win == workspc->focus_list().current()) {
+    auto& window_list = win->workspace()->window_list();
+    if (win == window_list.current()) {
         logger::debug("Ignoring current focused");
         return;
     }
-    win->workspace()->focus_list().add(win);
+    window_list.focus(std::find(window_list.begin(), window_list.end(), win));
 }
 
 // Only log for debug
@@ -201,9 +246,60 @@ void _on_focus_out(const xcb_focus_out_event_t& event)
             break;
         }
     }();
-    logger::debug("Focus lost -> window: {:#x}, name: {}, detail: {}, mode: {}", 
+    logger::debug("Focus lost -> window: {:#x}, name: {}, detail: {}, mode: {}",
                   event.event, win_name, detail, mode);
 #endif
+}
+
+void _on_button_press(const xcb_button_press_event_t& event)
+{
+    logger::debug("Button press on -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
+    if (_state->manager<::Window>().is_managed(event.event)) {
+        auto* window = _state->manager<::Window>().at(event.event);
+        auto& window_list = window->workspace()->window_list();
+        xcb_allow_events(X11::_conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
+        if (window_list.current() == window) return;
+        window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+    }
+}
+
+void _on_button_release(const xcb_button_release_event_t& event)
+{
+    logger::debug("Button release on -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
+    logger::debug("Window is {}managed", _state->manager<::Window>().is_managed(event.event) ? "" : "not ");
+}
+
+void _on_selection_clear(const xcb_selection_clear_event_t& event)
+{
+    if (event.selection != X11::atom::WM_SN) {
+        logger::debug("Selection clear for unknown selection: {}", event.selection);
+        return;
+    }
+    // Suicide signal
+    _state->server().stop();
+}
+
+static void _grab_default_keys()
+{
+    Keybind& keybind = _state->keybind();
+    static const std::array<uint32_t, 4> keys = {
+        keybind.keycode_from_keysym(XKB_KEY_H),
+        keybind.keycode_from_keysym(XKB_KEY_J),
+        keybind.keycode_from_keysym(XKB_KEY_K),
+        keybind.keycode_from_keysym(XKB_KEY_L)
+    };
+    for (const auto key : keys) {
+        xcb_grab_key(X11::_conn(), 0, X11::_conn().xscreen()->root,
+                     XCB_MOD_MASK_4, key, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC);
+    }
+}
+
+void _on_xkb_state_notify(const xcb_xkb_state_notify_event_t& event)
+{
+    logger::debug("State group: {}", event.group);
+    _state->keybind().current_group(event.group);
+    xcb_ungrab_key(X11::_conn(), XCB_GRAB_ANY, X11::_conn().xscreen()->root, XCB_MOD_MASK_ANY);
+    _grab_default_keys();
 }
 
 } // namespace X11::event

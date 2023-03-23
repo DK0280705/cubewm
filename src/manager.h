@@ -3,29 +3,12 @@
  * A manager class
  * To manage containers.
  */
-
+#include "managed.h"
 #include "helper.h"
 #include "visitor.h"
 #include <unordered_map>
 
 class Connection;
-
-class Managed
-{
-public:
-    using Managed_id = unsigned int;
-
-private:
-    Managed_id _id;
-
-public:
-    Managed(const Managed_id id) noexcept
-        : _id(id)
-    {}
-
-    inline Managed_id index() const noexcept
-    { return _id; }
-};
 
 template <derived_from<Managed> Managed_t>
 class Manager : public Init_once<Manager<Managed_t>>
@@ -39,13 +22,10 @@ public:
     using Const_iterator = typename std::unordered_map<Managed_id, Managed_t*>::const_iterator;
 
 private:
-    Managed_id        _current;
     Managed_container _managed;
 
 public:   
-    Manager()
-        : _current(0)
-    {}
+    Manager() noexcept = default;
 
     Manager(const Manager&)        = delete;
     Manager(Manager&&)             = delete;
@@ -62,30 +42,10 @@ public:
     inline Managed_t* at(const Managed_id id) const
     { return _managed.at(id); }
 
-    inline Managed_t* current() const
-    { return _managed.at(_current); }
-
-    inline void set_current(uint16_t index)
-    {
-        assert_debug(is_managed(index), "index is not managed");
-        _current = index;
-    }
-
     inline bool is_managed(const Managed_id w) const
     { return _managed.contains(w); }
 
-public: 
-    inline Iterator begin() noexcept
-    { return _managed.begin(); }
-
-    inline Iterator end() noexcept
-    { return _managed.end(); }
-
-    inline Const_iterator cbegin() noexcept
-    { return _managed.cbegin(); }
-
-    inline Const_iterator cend() noexcept
-    { return _managed.cend(); }
+    DECLARE_ITERATOR_WRAPPER(_managed)
 
 public:
     template <derived_from<Managed_t> Derived_t = Managed_t, typename...Args>
