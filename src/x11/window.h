@@ -1,13 +1,12 @@
 #pragma once
+#include "x11.h"
 #include "../window.h"
 #include "../helper.h"
-#include <cstddef>
-#include <cstdint>
-#include <type_traits>
 #include <span>
 
 class State;
 class Workspace;
+class Keybind;
 struct xcb_get_window_attributes_reply_t;
 struct xcb_get_geometry_reply_t;
 
@@ -33,7 +32,7 @@ public:
 
     inline std::string_view window_class() const noexcept
     { return _class; }
-    
+
     inline std::string_view window_instance() const noexcept
     { return _instance; }
 
@@ -62,32 +61,27 @@ enum class prop : uint8_t
 };
 
 // i dunno, let the compiler guess
+// Not very important, keep it one line
 template <typename T>
 static consteval int prop_size()
-{
-    if constexpr (std::is_pointer<T>())
-        return sizeof(T);
-    else
-        return sizeof(T) * 8;
-}
+{ if constexpr (std::is_pointer<T>()) return sizeof(T); else return sizeof(T) * 8; }
 
-bool manageable(uint32_t window_id, const bool must_be_mapped = false);
+bool manageable(const uint32_t window_id, const bool must_be_mapped = false);
 
 void load_all(State& state);
-auto load_workspace(State& state, X11::Window* window) -> ::Workspace*;
+Workspace* load_workspace(State& state, X11::Window* window);
 
-auto get_attribute(uint32_t window_id)
+void grab_keys(Keybind& keybind, const uint32_t window_id);
+
+void grab_buttons(const uint32_t window_id);
+
+auto get_attribute(const uint32_t window_id)
     -> memory::c_owner<xcb_get_window_attributes_reply_t>;
 
-auto get_geometry(uint32_t window_id)
+auto get_geometry(const uint32_t window_id)
     -> memory::c_owner<xcb_get_geometry_reply_t>;
 
-bool has_proto(uint32_t window_id, uint32_t atom);
-
-namespace detail { // No one wants to know about the detail
-void _cpc_impl(const window::prop mode, const uint32_t wind, const uint8_t prop, const uint8_t type, const uint8_t form, const uint32_t size, const void* data);
-void _cp_impl(const window::prop mode, const uint32_t wind, const uint8_t prop, const uint8_t type, const uint8_t form, const uint32_t size, const void* data);
-}
+bool has_proto(const uint32_t window_id, const uint32_t atom);
 
 template <typename T, size_t N>
 inline void change_property_c(const window::prop mode,
@@ -96,8 +90,10 @@ inline void change_property_c(const window::prop mode,
                               const uint8_t      type,
                               std::span<T, N>    data)
 {
-    constexpr int format = prop_size<T>(); 
-    detail::_cpc_impl(mode, wind, prop, type, format, data.size(), data.data());
+    constexpr int format = prop_size<T>();
+    detail::check_error(xcb_change_property_checked(
+        X11::_conn(), static_cast<uint8_t>(mode),
+        wind, prop, type, format, data.size(), data.data()));
 }
 
 template <typename T, size_t N>
@@ -107,13 +103,22 @@ inline void change_property(const window::prop mode,
                             const uint8_t      type,
                             std::span<T, N>    data)
 {
-    constexpr int format = prop_size<T>(); 
-    detail::_cp_impl(mode, wind, prop, type, format, data.size(), data.data());
+    constexpr int format = prop_size<T>();
+    xcb_change_property(
+        X11::_conn(), static_cast<uint8_t>(mode),
+        wind, prop, type, format, data.size(), data.data());
 }
 
-
-void change_attributes(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data);
-void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<const uint32_t> data);
+template <typename T, size_t N>
+inline void change_attributes(const uint32_t wind, const uint32_t mask, std::span<T, N> data)
+{
+    xcb_change_window_attributes(X11::_conn(), wind, mask, data.data());
+}
+template <typename T, size_t N>
+inline void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<T, N> data)
+{
+    detail::check_error(xcb_change_window_attributes_checked(X11::_conn(), wind, mask, data.data()));
+}
 
 } // namespace window
 } // namespace X11

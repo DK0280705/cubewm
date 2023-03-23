@@ -6,15 +6,12 @@
 #include "extension.h"
 #include "window.h"
 #include "event.h"
-#include <csignal>
 #include "x11.h"
-#include <unordered_set>
 #include <algorithm>
 #include <xkbcommon/xkbcommon.h>
 #define explicit _explicit
 #include <xcb/xkb.h>
 #undef explicit
-#include <xcb/xproto.h>
 
 // xmacro(key, name);
 #define SUPPORTED_EVENTS \
@@ -26,22 +23,6 @@ xmacro(FOCUS_OUT, focus_out) \
 xmacro(BUTTON_PRESS, button_press) \
 xmacro(BUTTON_RELEASE, button_release) \
 xmacro(SELECTION_CLEAR, selection_clear)
-
-static void _grab_default_buttons(const xcb_window_t window_id)
-{
-    static constexpr auto buttons = {
-        XCB_BUTTON_INDEX_1,
-        XCB_BUTTON_INDEX_2,
-        XCB_BUTTON_INDEX_3,
-    };
-    xcb_grab_server(X11::_conn());
-    for (const auto b : buttons) {
-        xcb_grab_button(X11::_conn(), 0, window_id,
-                        XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC,
-                        X11::_conn().xscreen()->root, XCB_NONE, b, XCB_BUTTON_MASK_ANY);
-    }
-    xcb_ungrab_server(X11::_conn());
-}
 
 namespace X11::event {
 
@@ -57,9 +38,10 @@ void init(State& state)
 {
     _state = &state;
     try {
+        const uint32_t mask[] = { constant::ROOT_EVENT_MASK };
         window::change_attributes_c(state.conn().xscreen()->root,
                                     XCB_CW_EVENT_MASK,
-                                    {{constant::ROOT_EVENT_MASK}});
+                                    std::span{mask});
     } catch(const std::runtime_error& err) {
         // Rethrow with different message
         throw std::runtime_error("Another WM is running (X Server)");
@@ -152,7 +134,8 @@ void _on_map_request(const xcb_map_request_event_t& event)
     auto& window_list = win->workspace()->window_list();
     window_list.add(win);
     window_list.focus(std::prev(window_list.end(), 1));
-    _grab_default_buttons(win->index());
+    window::grab_keys(_state->keybind(), win->index());
+    window::grab_buttons(win->index());
 }
 
 void _on_focus_in(const xcb_focus_in_event_t& event)
@@ -258,8 +241,8 @@ void _on_button_press(const xcb_button_press_event_t& event)
         auto* window = _state->manager<::Window>().at(event.event);
         auto& window_list = window->workspace()->window_list();
         xcb_allow_events(X11::_conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
-        if (window_list.current() == window) return;
-        window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+        if (window_list.current() != window)
+            window_list.focus(std::find(window_list.begin(), window_list.end(), window));
     }
 }
 
@@ -279,27 +262,12 @@ void _on_selection_clear(const xcb_selection_clear_event_t& event)
     _state->server().stop();
 }
 
-static void _grab_default_keys()
-{
-    Keybind& keybind = _state->keybind();
-    static const std::array<uint32_t, 4> keys = {
-        keybind.keycode_from_keysym(XKB_KEY_H),
-        keybind.keycode_from_keysym(XKB_KEY_J),
-        keybind.keycode_from_keysym(XKB_KEY_K),
-        keybind.keycode_from_keysym(XKB_KEY_L)
-    };
-    for (const auto key : keys) {
-        xcb_grab_key(X11::_conn(), 0, X11::_conn().xscreen()->root,
-                     XCB_MOD_MASK_4, key, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC);
-    }
-}
-
 void _on_xkb_state_notify(const xcb_xkb_state_notify_event_t& event)
 {
     logger::debug("State group: {}", event.group);
     _state->keybind().current_group(event.group);
     xcb_ungrab_key(X11::_conn(), XCB_GRAB_ANY, X11::_conn().xscreen()->root, XCB_MOD_MASK_ANY);
-    _grab_default_keys();
+    window::grab_keys(_state->keybind(), X11::_conn().xscreen()->root);
 }
 
 } // namespace X11::event

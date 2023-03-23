@@ -20,9 +20,10 @@ static void _acquire_first_timestamp(Connection& conn)
 {
     // Initiate requests
     xcb_grab_server(conn);
+    const uint32_t mask[] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
     window::change_attributes(conn.xscreen()->root,
                               XCB_CW_EVENT_MASK,
-                              {{XCB_EVENT_MASK_PROPERTY_CHANGE}});
+                              std::span{mask});
     window::change_property(window::prop::append,
                             conn.xscreen()->root,
                             XCB_ATOM_SUPERSCRIPT_X,
@@ -187,4 +188,12 @@ unsigned int _main_window_id()
 {
     return _main_window;
 }
+
+namespace detail {
+void check_error(const xcb_void_cookie_t& cookie) {
+    auto reply = memory::c_own(xcb_request_check(X11::_conn(), cookie));
+    assert_runtime(!reply, "Change property failed");
+}
+}
+
 }

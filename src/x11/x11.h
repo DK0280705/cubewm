@@ -1,4 +1,5 @@
 #pragma once
+#include <xcb/xproto.h>
 /**
  * Separate X11 specifics from the actual window manager
  */
@@ -14,4 +15,8 @@ void init(::State& state);
 // Now let's agree to not to use it outside namespace
 Connection& _conn();
 unsigned int _main_window_id();
+
+namespace detail {
+void check_error(const xcb_void_cookie_t& cookie);
+}
 }

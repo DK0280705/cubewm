@@ -4,7 +4,6 @@
 #include "../connection.h"
 #include <cstring>
 #include <xcb/xcb.h>
-#include <xcb/xproto.h>
 #include <xcb/xcb_atom.h>
 
 namespace X11::atom {
@@ -16,7 +15,7 @@ namespace X11::atom {
 
 void init()
 {
-#define xmacro(name) { name = by_name(#name); }  
+#define xmacro(name) { name = by_name(#name); }
     ALL_ATOMS_XMACRO;
     WM_SN = by_screen("WM");
 #undef xmacro
