@@ -35,7 +35,8 @@ Server::Server(State& state)
 
     X11::window::load_all(_state);
     auto& window_list = _state.current_workspace()->window_list();
-    window_list.focus(std::prev(window_list.end(), 1));
+    if (window_list.current())
+        window_list.focus(std::prev(window_list.end(), 1));
 }
 
 void Server::_main_loop()

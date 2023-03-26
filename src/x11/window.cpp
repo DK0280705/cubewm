@@ -188,7 +188,7 @@ void Window::focus()
         xcb_send_event(X11::_conn(), false, index(), XCB_EVENT_MASK_NO_EVENT, (char*)&event);
     } else {
         xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT,
-                            index(), X11::_conn().timestamp());
+                            index(), XCB_CURRENT_TIME);
         logger::debug("Setting input focus to window: {:#x}", index());
     }
     _focused = true;
@@ -197,7 +197,7 @@ void Window::focus()
 void Window::unfocus()
 {
     xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::_main_window_id(),
-                        X11::_conn().timestamp());
+                        XCB_CURRENT_TIME);
     _focused = false;
 }
 
@@ -316,13 +316,13 @@ void grab_keys(Keybind& keybind, const uint32_t window_id)
     // default keys
     // TODO: implement binding configuration
     static const auto keys = {
-        keybind.keycode_from_keysym(XKB_KEY_H),
-        keybind.keycode_from_keysym(XKB_KEY_J),
-        keybind.keycode_from_keysym(XKB_KEY_K),
-        keybind.keycode_from_keysym(XKB_KEY_L)
+        keybind.keycode_from_keysym(XKB_KEY_h),
+        keybind.keycode_from_keysym(XKB_KEY_j),
+        keybind.keycode_from_keysym(XKB_KEY_k),
+        keybind.keycode_from_keysym(XKB_KEY_l)
     };
     for (const auto key : keys) {
-        xcb_grab_key(X11::_conn(), 0, X11::_conn().xscreen()->root,
+        xcb_grab_key(X11::_conn(), 0, window_id,
                      XCB_MOD_MASK_4, key, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC);
     }
 }
