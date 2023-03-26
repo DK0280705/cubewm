@@ -255,7 +255,7 @@ bool manageable(const uint32_t window_id, const bool must_be_mapped)
 
 }
 
-static auto all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, std::span<xcb_window_t>>
+static auto _fetch_all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, std::span<xcb_window_t>>
 {
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::_conn(),
@@ -269,9 +269,9 @@ static auto all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, std::spa
 void load_all(State& state)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
-    auto pair = all();
+    auto [_, windows] = window::_fetch_all();
     xcb_grab_server(X11::_conn());
-    for (const auto& w_id : pair.second) {
+    for (const auto& w_id : windows) {
         if (win_mgr.is_managed(w_id)) continue;
         if (!manageable(w_id, true)) continue;
         ::Window* window = win_mgr.manage<X11::Window>(w_id);
