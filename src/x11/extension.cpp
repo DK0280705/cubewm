@@ -100,10 +100,8 @@ static Extension _init_xshape(const Connection& conn)
     return Extension(reply->first_event, version && version->minor_version >= 1);
 }
 
-void init()
+void init(const Connection& conn)
 {
-    const Connection& conn = X11::_conn();
-
     xkb    = _init_xkb(conn);
     xrandr = _init_xrandr(conn);
     xshape = _init_xshape(conn);

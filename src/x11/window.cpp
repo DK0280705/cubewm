@@ -152,6 +152,7 @@ Window::Window(Managed_id id)
     // Create frame
     _frame = std::make_unique<X11::Window_frame>(this);
 
+    window::grab_buttons(index());
     // Flush the toilet
     xcb_flush(X11::_conn());
 }
@@ -182,7 +183,7 @@ void Window::focus()
             .format = 32,
             .window = index(),
             .type = X11::atom::WM_PROTOCOLS,
-            .data = { .data32 { X11::atom::WM_TAKE_FOCUS, X11::_conn().timestamp() } }
+            .data = { .data32 { X11::atom::WM_TAKE_FOCUS, State::timestamp } }
         };
         logger::debug("Sending WM_TAKE_FOCUS to window: {:#x}", index());
         xcb_send_event(X11::_conn(), false, index(), XCB_EVENT_MASK_NO_EVENT, (char*)&event);
@@ -280,8 +281,6 @@ void load_all(State& state)
 
         place_to(ws, window);
         ws->window_list().add(window);
-        grab_keys(state.keybind(), window->index());
-        grab_buttons(window->index());
         xcb_map_window(X11::_conn(), window->index());
     }
     xcb_ungrab_server(X11::_conn());
@@ -311,20 +310,9 @@ Workspace* load_workspace(State& state, X11::Window* window)
     return (wor_mgr.is_managed(ws_id)) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
 }
 
-void grab_keys(Keybind& keybind, const uint32_t window_id)
+void grab_keys(::Keyboard& keyboard, const uint32_t window_id)
 {
-    // default keys
-    // TODO: implement binding configuration
-    static const auto keys = {
-        keybind.keycode_from_keysym(XKB_KEY_h),
-        keybind.keycode_from_keysym(XKB_KEY_j),
-        keybind.keycode_from_keysym(XKB_KEY_k),
-        keybind.keycode_from_keysym(XKB_KEY_l)
-    };
-    for (const auto key : keys) {
-        xcb_grab_key(X11::_conn(), 0, window_id,
-                     XCB_MOD_MASK_4, key, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC);
-    }
+
 }
 
 void grab_buttons(const uint32_t window_id)

@@ -6,7 +6,7 @@
 
 class State;
 class Workspace;
-class Keybind;
+class Keyboard;
 struct xcb_get_window_attributes_reply_t;
 struct xcb_get_geometry_reply_t;
 
@@ -71,7 +71,7 @@ bool manageable(const uint32_t window_id, const bool must_be_mapped = false);
 void load_all(State& state);
 Workspace* load_workspace(State& state, X11::Window* window);
 
-void grab_keys(Keybind& keybind, const uint32_t window_id);
+void grab_keys(Keyboard& keyboard, const uint32_t window_id);
 
 void grab_buttons(const uint32_t window_id);
 

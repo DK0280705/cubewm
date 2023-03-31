@@ -17,7 +17,6 @@ static constexpr uint32_t FRAME_EVENT_MASK = XCB_EVENT_MASK_BUTTON_PRESS        
                                            | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT /* …the application tries to resize itself */
                                            | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY   /* …subwindows get notifies */
                                            | XCB_EVENT_MASK_ENTER_WINDOW;         /* …user moves cursor inside our window */
- 
 
 static constexpr uint32_t ROOT_EVENT_MASK = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
                                           | XCB_EVENT_MASK_BUTTON_PRESS

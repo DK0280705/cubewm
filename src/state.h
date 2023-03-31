@@ -1,6 +1,7 @@
 #pragma once
+#include "connection.h"
 #include "server.h"
-#include "keybind.h"
+#include "keyboard.h"
 #include "helper.h"
 #include "manager.h"
 #include "monitor.h"
@@ -8,9 +9,6 @@
 #include "window.h"
 #include <stdexcept>
 #include <type_traits>
-
-class Connection;
-class Server;
 
 class State final : public Init_once<State>
 {
@@ -21,17 +19,28 @@ class State final : public Init_once<State>
     Manager<Window>&    _win_mgr;
 
     Server*  _server;
-    Keybind* _keybind;
+    Keyboard* _keyboard;
 
     Workspace* _current_workspace;
+    Monitor*   _current_monitor;
 
 public:
+    static uint32_t timestamp; // It just a timestamp duh...
+
     State(Connection& conn)
         : _conn(conn)
         , _mon_mgr(Manager<Monitor>::init())
         , _wor_mgr(Manager<Workspace>::init())
         , _win_mgr(Manager<Window>::init())
-    {}
+    {
+        // Set default workspace, ensure it never null.
+        _current_workspace = _wor_mgr.manage(0);
+        // Set default monitor, at worst, atleast it handles one monitor.
+        _current_monitor = _mon_mgr.manage(0);
+        _current_monitor->add(_current_workspace);
+        // Set rect for basic functionality.
+        _current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
+    }
 
     ~State()
     {
@@ -42,43 +51,43 @@ public:
     }
 
 public:
-    inline Connection& conn() noexcept
+    constexpr const Connection& conn() const noexcept
     { return _conn; }
 
     template <derived_from<Managed> T>
-    inline Manager<T>& manager() noexcept
-    { assert(false); }
+    constexpr Manager<T>& manager() noexcept
+    { throw std::exception(); }
 
-    template <derived_from<Keybind> T>
-    inline void init_keybind()
-    { _keybind = &T::init(); }
+    template <derived_from<Keyboard> T>
+    constexpr void init_keyboard(auto&&... args)
+    { _keyboard = &T::init(std::forward<decltype(args)>(args)...); }
 
-    inline Keybind& keybind() noexcept
+    constexpr Keyboard& keyboard() noexcept
     // Simply boom if there's no instance;
-    { assert(_keybind); return *_keybind; }
+    { assert(_keyboard); return *_keyboard; }
 
     template <derived_from<Server> T>
-    inline void init_server()
-    { _server = &T::init(*this); }
+    constexpr void init_server(auto&&... args)
+    { _server = &T::init(std::forward<decltype(args)>(args)...); }
 
-    inline Server& server() noexcept
+    constexpr Server& server() noexcept
     { assert(_server); return *_server; }
 
     inline void current_workspace(Workspace* ws) noexcept
     { _current_workspace = ws; }
 
-    inline Workspace* current_workspace() const noexcept
+    constexpr Workspace* current_workspace() const noexcept
     { return _current_workspace; }
 };
 
 template <>
-inline Manager<Monitor>& State::manager() noexcept
+constexpr Manager<Monitor>& State::manager() noexcept
 { return _mon_mgr; }
 
 template <>
-inline Manager<Workspace>& State::manager() noexcept
+constexpr Manager<Workspace>& State::manager() noexcept
 { return _wor_mgr; }
 
 template <>
-inline Manager<Window>& State::manager() noexcept
+constexpr Manager<Window>& State::manager() noexcept
 { return _win_mgr; }

@@ -13,10 +13,10 @@
 #include <thread>
 
 namespace X11 {
-static Connection* _pconn = nullptr;
+static const Connection* _pconn = nullptr;
 static xcb_window_t _main_window = 0;
 
-static void _acquire_first_timestamp(Connection& conn)
+static void _acquire_first_timestamp(const Connection& conn)
 {
     // Initiate requests
     xcb_grab_server(conn);
@@ -36,15 +36,15 @@ static void _acquire_first_timestamp(Connection& conn)
     xcb_generic_event_t* event = nullptr;
     while ((event = xcb_wait_for_event(conn)))
         if ((event->response_type & 0x7F) == XCB_PROPERTY_NOTIFY) {
-            conn.timestamp(((xcb_property_notify_event_t*)event)->time);
+            State::timestamp = ((xcb_property_notify_event_t*)event)->time;
             free(event);
             return;
         } else free(event);
 }
 
 static void _acquire_selection_owner(const Connection&  conn,
-                                    const xcb_window_t main_window,
-                                    const bool         replace_wm)
+                                     const xcb_window_t main_window,
+                                     const bool         replace_wm)
 {
     auto reply = memory::c_own<xcb_get_selection_owner_reply_t>(
         xcb_get_selection_owner_reply(
@@ -52,7 +52,7 @@ static void _acquire_selection_owner(const Connection&  conn,
     assert_runtime(!(reply && reply->owner != XCB_NONE && !replace_wm), "Another WM is running (Selection Owner)");
 
     // This will notify selection clear event on another wm
-    xcb_set_selection_owner(conn, main_window, atom::WM_SN, conn.timestamp());
+    xcb_set_selection_owner(conn, main_window, atom::WM_SN, State::timestamp);
 
     // Wait for another wm to exit
     if (reply->owner != XCB_NONE) {
@@ -78,7 +78,7 @@ static void _acquire_selection_owner(const Connection&  conn,
         .format        = 32,
         .window        = conn.xscreen()->root,
         .type          = atom::MANAGER,
-        .data = {.data32 = {conn.timestamp(), atom::WM_SN, main_window}}};
+        .data = {.data32 = {State::timestamp, atom::WM_SN, main_window}}};
 
     xcb_send_event(conn, 0, conn.xscreen()->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
 }
@@ -158,13 +158,13 @@ static xcb_window_t _setup_main_window(const Connection& conn)
 
 void init(::State& state)
 {
-    Connection& conn = state.conn();
+    const Connection& conn = state.conn();
     _pconn = &conn;
 
     atom::init();
 
     _acquire_first_timestamp(conn);
-    logger::debug("First timestamp: {}", conn.timestamp());
+    logger::debug("First timestamp: {}", State::timestamp);
 
     _main_window = _setup_main_window(conn);
     _acquire_selection_owner(conn, _main_window, config::replace_wm);
@@ -172,11 +172,11 @@ void init(::State& state)
 
     event::init(state);
 
-    extension::init();
+    extension::init(conn);
     _setup_hints(conn, _main_window);
 }
 
-Connection& _conn()
+const Connection& _conn()
 {
     // Nahh if statement is stupid.
     // This is already stupid, let the application blow up

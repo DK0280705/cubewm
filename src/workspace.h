@@ -35,14 +35,21 @@ class Workspace : public Node<Container>
                 , public Managed
 {
     Window_list _window_list;
+    std::string _name;
 
 public:
     Workspace(const Managed_id id) noexcept
         : Managed(id)
-    {}
+    {
+        // by default the name is the id.
+        _name = std::to_string(id);
+    }
 
     inline Window_list& window_list()
     { return _window_list; }
+
+    inline std::string_view name() const
+    { return _name; }
 
 public:
     void update_rect() override;

@@ -23,21 +23,19 @@ void init()
 
 xcb_atom_t by_name(const char* name)
 {
-    auto reply = memory::c_own<xcb_intern_atom_reply_t>(
-        xcb_intern_atom_reply(
-            X11::_conn(),
-            xcb_intern_atom_unchecked(X11::_conn(), false, strlen(name), name),
-            nullptr));
+    auto reply = memory::c_own(xcb_intern_atom_reply(
+        X11::_conn(),
+        xcb_intern_atom_unchecked(X11::_conn(), false, strlen(name), name),
+        nullptr));
 
     return reply->atom;
 }
 
 xcb_atom_t by_screen(const char* base_name)
 {
-    char* name = xcb_atom_name_by_screen(base_name, X11::_conn().scr_id());
+    auto name = memory::c_own(xcb_atom_name_by_screen(base_name, X11::_conn().scr_id()));
 
-    const xcb_atom_t atom = by_name(name);
-    free(name);
+    const xcb_atom_t atom = by_name(name.get());
 
     return atom;
 }

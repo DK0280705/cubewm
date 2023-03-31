@@ -20,7 +20,7 @@ public:
     { return _rect; }
 
     inline void rect(const Vector2D& rect)
-    { 
+    {
         _rect = rect;
         update_rect();
     }

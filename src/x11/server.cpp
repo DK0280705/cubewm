@@ -1,6 +1,6 @@
 #include "../state.h"
 #include "../connection.h"
-#include "keybind.h"
+#include "keyboard.h"
 #include "server.h"
 #include "event.h"
 #include "window.h"
@@ -13,24 +13,22 @@ Server::Server(State& state)
     : ::Server(state)
 {
     X11::init(_state);
-    _state.init_keybind<X11::Keybind>();
-    // Set default workspace
-    auto& wor_mgr = _state.manager<Workspace>();
-    auto* workspc = wor_mgr.manage(0);
-    _state.current_workspace(workspc);
+    _state.init_keyboard<X11::Keyboard>(_state.conn());
+    // Get default workspace
+    auto* workspc = _state.current_workspace();
+    assert_debug(workspc, "Expected default workspace not null");
 
     // Default, will add randr soon
     _state.manager<Monitor>().accept([&](Manager<Monitor>& mgr) {
-        if (mgr.empty()) {
-            Monitor* mon = mgr.manage(0);
-            mon->add(workspc);
-            const Vector2D rect = {
-                { 0, 0 },
-                { state.conn().xscreen()->width_in_pixels,
-                  state.conn().xscreen()->height_in_pixels }
-            };
-            mon->rect(rect);
-        }
+        if (mgr.empty())
+            mgr.manage(0);
+        Monitor* mon = mgr.at(0);
+        const Vector2D rect = {
+            { 0, 0 },
+            { state.conn().xscreen()->width_in_pixels,
+                state.conn().xscreen()->height_in_pixels }
+        };
+        mon->rect(rect);
     });
 
     X11::window::load_all(_state);

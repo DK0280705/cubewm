@@ -11,3 +11,10 @@ struct Vector2D
     Point2D pos;
     Point2D size;
 };
+
+enum class direction : unsigned char {
+    left,
+    up,
+    right,
+    down
+};

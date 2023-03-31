@@ -11,6 +11,8 @@
 #include <array>
 #include <getopt.h>
 
+uint32_t State::timestamp = 0; // Avoid linker error.
+
 static bool _parse_arguments(int argc, char* const argv[])
 {
     static constexpr std::array<option, 3> options{{
@@ -62,7 +64,7 @@ int main(int argc, char* const argv[])
         using Server_type = typename X11::Server;
 #endif
 
-        state.init_server<Server_type>();
+        state.init_server<Server_type>(state);
         Server& srv = state.server();
 
         srv.start();

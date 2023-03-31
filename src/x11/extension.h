@@ -1,6 +1,7 @@
 #pragma once
 
 namespace X11 {
+class Connection;
 namespace extension {
 
 class Extension {
@@ -23,7 +24,7 @@ extern Extension xkb;
 extern Extension xrandr;
 extern Extension xshape;
 
-void init();
+void init(const Connection& conn);
 
 }
 }
