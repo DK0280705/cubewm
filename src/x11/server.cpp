@@ -22,17 +22,15 @@ Server::Server(State& state)
     _state.manager<Monitor>().accept([&](Manager<Monitor>& mgr) {
         if (mgr.empty())
             mgr.manage(0);
-        Monitor* mon = mgr.at(0);
-        const Vector2D rect = {
+        auto* xscreen = state.conn().xscreen();
+        mgr.at(0)->rect({
             { 0, 0 },
-            { state.conn().xscreen()->width_in_pixels,
-                state.conn().xscreen()->height_in_pixels }
-        };
-        mon->rect(rect);
+            { xscreen->width_in_pixels, xscreen->height_in_pixels }
+        });
     });
 
     X11::window::load_all(_state);
-    auto& window_list = _state.current_workspace()->window_list();
+    auto& window_list = workspc->window_list();
     if (window_list.current())
         window_list.focus(std::prev(window_list.end(), 1));
 }

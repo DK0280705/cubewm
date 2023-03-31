@@ -26,6 +26,11 @@ xmacro(KEY_PRESS, key_press) \
 xmacro(KEY_RELEASE, key_release) \
 xmacro(SELECTION_CLEAR, selection_clear)
 
+#define SUPPORTED_XKB_EVENTS \
+xmacro(XKB_NEW_KEYBOARD_NOTIFY, xkb_new_keyboard_notify) \
+xmacro(XKB_MAP_NOTIFY, xkb_map_notify) \
+xmacro(XKB_STATE_NOTIFY, xkb_state_notify)
+
 namespace X11::event {
 
 static std::unordered_set<uint32_t> _ignored_sequences;
@@ -33,7 +38,7 @@ static State* _state;
 
 #define xmacro(key, name) static void _on_##name (const xcb_##name##_event_t& event);
     SUPPORTED_EVENTS
-    xmacro(, xkb_state_notify)
+    SUPPORTED_XKB_EVENTS
 #undef xmacro
 
 void init(State& state)
@@ -60,9 +65,13 @@ void handle(const Event& event)
     const int type = event.data->response_type & ~0x80;
     if (extension::xkb.supported() && type == extension::xkb.event_base()) {
         switch(event.data->pad0) {
-        case XCB_XKB_STATE_NOTIFY:
-            logger::debug("XKB_STATE_NOTIFY event");
-            return _on_xkb_state_notify(event);
+        #define xmacro(key, name)         \
+        case XCB_##key:                   \
+            logger::debug(#key " event"); \
+            _on_##name (event);           \
+            return;
+        SUPPORTED_XKB_EVENTS
+        #undef xmacro
         default:
             return;
         }
@@ -273,6 +282,17 @@ void _on_selection_clear(const xcb_selection_clear_event_t& event)
     }
     // Suicide signal
     _state->server().stop();
+}
+
+void _on_xkb_new_keyboard_notify(const xcb_xkb_new_keyboard_notify_event_t& event)
+{
+    if (event.changed & XCB_XKB_NKN_DETAIL_KEYCODES)
+        _state->keyboard().update_keymap();
+}
+
+void _on_xkb_map_notify(const xcb_xkb_map_notify_event_t& event)
+{
+    _state->keyboard().update_keymap();
 }
 
 void _on_xkb_state_notify(const xcb_xkb_state_notify_event_t& event)
