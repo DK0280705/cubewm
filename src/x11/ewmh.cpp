@@ -47,7 +47,7 @@ void update_client_list(State& state)
 {
     const auto& win_mgr = state.manager<::Window>();
     std::vector<uint32_t> prop(win_mgr.size());
-    int i = 0;
+    uint32_t i = 0;
     for (const auto& [id, win] : win_mgr) {
         prop[i] = id;
         ++i;

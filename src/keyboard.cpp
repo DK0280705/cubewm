@@ -15,6 +15,6 @@ void Keyboard::_clear_keymap()
 
 Keyboard::~Keyboard()
 {
-    xkb_context_unref(_ctx);
     _clear_keymap();
+    xkb_context_unref(_ctx);
 }

@@ -3,34 +3,34 @@
 #include "logger.h"
 #include <algorithm>
 
-void Window_list::add(Window* win)
+void Window_list::add(Window* window)
 {
-    assert_debug(!contains(win), "You can't add existing window to window list");
-    logger::debug("Adding new focus");
-    _list.push_back(win);
-    _pos.insert(win);
+    assert_debug(!contains(window), "You can't add existing window to window list");
+    logger::debug("Window list -> adding window: {:#x}", window->index());
+    _list.push_back(window);
+    _pos.insert(window);
 }
 
 void Window_list::focus(Const_iterator it)
 {
-    logger::debug("Focusing window on window list");
+    logger::debug("Window list -> focusing window: {:#x}", (*it)->index());
     current()->unfocus();
-    auto* win = *it;
+    auto* window = *it;
     _list.splice(_list.end(), _list, it);
-    win->focus();
+    window->focus();
 }
 
-void Window_list::remove(Window* win)
+void Window_list::remove(Window* window)
 {
-    if (win->focused()) win->unfocus();
+    if (window->focused()) window->unfocus();
 
-    logger::debug("Removing focus");
+    logger::debug("Window list -> removing window: {:#x}", window->index());
     auto* last = current();
-    _list.remove(win);
-    _pos.erase(win);
+    _list.remove(window);
+    _pos.erase(window);
 
-    if (win == last && current()) {
-        logger::debug("Refocusing last focus");
+    if (window == last && current()) {
+        logger::debug("Window list -> refocusing last window");
         focus(std::prev(_list.cend(), 1));
     }
 }
@@ -38,7 +38,7 @@ void Window_list::remove(Window* win)
 void Workspace::update_rect()
 {
     const auto& rect = this->rect();
-    logger::debug("Updating Workspace rect -> x: {}, y: {}, width: {}, height: {}",
+    logger::debug("Workspace rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
     for (const auto& lcon : *this)
         lcon->rect(rect);

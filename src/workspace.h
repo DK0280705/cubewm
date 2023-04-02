@@ -26,9 +26,9 @@ public:
     DECLARE_ITERATOR_WRAPPER(_list)
 
 public:
-    void add(Window* foc);
+    void add(Window* window);
     void focus(Const_iterator it);
-    void remove(Window* foc);
+    void remove(Window* window);
 };
 
 class Workspace : public Node<Container>

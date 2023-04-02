@@ -87,8 +87,8 @@ bool has_proto(const uint32_t window_id, const uint32_t atom);
 template <typename T, size_t N>
 inline void change_property_c(const window::prop mode,
                               const uint32_t     wind,
-                              const uint8_t      prop,
-                              const uint8_t      type,
+                              const uint32_t     prop,
+                              const uint32_t     type,
                               std::span<T, N>    data)
 {
     constexpr int format = prop_size<T>();
@@ -100,8 +100,8 @@ inline void change_property_c(const window::prop mode,
 template <typename T, size_t N>
 inline void change_property(const window::prop mode,
                             const uint32_t     wind,
-                            const uint8_t      prop,
-                            const uint8_t      type,
+                            const uint32_t     prop,
+                            const uint32_t     type,
                             std::span<T, N>    data)
 {
     constexpr int format = prop_size<T>();

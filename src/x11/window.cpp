@@ -14,13 +14,13 @@ namespace X11 {
 
 namespace window {
 
-static void _fetch_name(const xcb_window_t id, std::string& name)
+static void _fetch_name(const xcb_window_t window_id, std::string& name)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
             X11::_conn(),
             xcb_get_property(X11::_conn(), false,
-                             id, X11::atom::_NET_WM_NAME,
+                             window_id, X11::atom::_NET_WM_NAME,
                              XCB_GET_PROPERTY_TYPE_ANY, 0, 128),
             nullptr));
     if (!prop) return;
@@ -28,15 +28,15 @@ static void _fetch_name(const xcb_window_t id, std::string& name)
     name = std::string(
         reinterpret_cast<char*>(xcb_get_property_value(prop.get())),
         xcb_get_property_value_length(prop.get()));
-    logger::debug("name: {}", name);
+    logger::debug("Window: {:#x} -> name: {}", window_id, name);
 }
 
-static void _fetch_type(const xcb_window_t id, xcb_atom_t& type)
+static void _fetch_type(const xcb_window_t window_id, xcb_atom_t& type)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
             X11::_conn(),
-            xcb_get_property(X11::_conn(), false, id,
+            xcb_get_property(X11::_conn(), false, window_id,
                              X11::atom::_NET_WM_WINDOW_TYPE,
                              XCB_GET_PROPERTY_TYPE_ANY, 0,
                              std::numeric_limits<uint32_t>::max()),
@@ -60,7 +60,7 @@ static void _fetch_type(const xcb_window_t id, xcb_atom_t& type)
             atoms[i] == X11::atom::_NET_WM_WINDOW_TYPE_TOOLTIP ||
             atoms[i] == X11::atom::_NET_WM_WINDOW_TYPE_NOTIFICATION) {
             type = atoms[i];
-            logger::debug("type: {}", type);
+            logger::debug("Window: {:#x} -> type: {}", window_id, type);
             return;
         }
 }
@@ -79,7 +79,7 @@ static void _fetch_role(const xcb_window_t window_id, std::string& role)
     role = std::string(
         reinterpret_cast<char*>(xcb_get_property_value(prop.get())),
         xcb_get_property_value_length(prop.get()));
-    logger::debug("role: {}", role);
+    logger::debug("Window: {:#x} -> role: {}", window_id, role);
 }
 
 static void _fetch_class_and_instance(const xcb_window_t window_id,
@@ -98,7 +98,10 @@ static void _fetch_class_and_instance(const xcb_window_t window_id,
     const char* prop_str = reinterpret_cast<char*>(
         xcb_get_property_value(prop.get()));
 
-    if (!prop_str) throw std::runtime_error("Cannot get window class");
+    if (!prop_str) {
+        logger::error("Window: {:#x} -> cannot get window class", window_id);
+        return;
+    }
 
     const std::size_t prop_length  = xcb_get_property_value_length(prop.get());
     const std::size_t class_length = strnlen(prop_str, prop_length) + 1;
@@ -108,7 +111,7 @@ static void _fetch_class_and_instance(const xcb_window_t window_id,
                     ? std::string(prop_str + class_length,
                                   prop_length - class_length)
                     : "";
-    logger::debug("class: {}, instance: {}", window_class, window_instance);
+    logger::debug("Window: {:#x} -> class: {}, instance: {}", window_id, window_class, window_instance);
 }
 
 static bool _is_alt_focus(const xcb_window_t window_id)
@@ -141,18 +144,11 @@ Window::Window(Managed_id id)
     window::_fetch_class_and_instance(id, _class, _instance);
     _alt_focus = !window::_is_alt_focus(id)
                && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
-
-    // Create pixmap
-    auto geo = window::get_geometry(id);
-    xcb_pixmap_t pixmap = xcb_generate_id(X11::_conn());
-
-    xcb_create_pixmap(X11::_conn(), X11::_conn().xscreen()->root_depth, pixmap,
-                      X11::_conn().xscreen()->root, geo->width, geo->height);
+    logger::debug("Window: {:#x} -> alt focus: {}", index(), _alt_focus);
 
     // Create frame
     _frame = std::make_unique<X11::Window_frame>(this);
 
-    window::grab_buttons(index());
     // Flush the toilet
     xcb_flush(X11::_conn());
 }
@@ -185,12 +181,20 @@ void Window::focus()
             .type = X11::atom::WM_PROTOCOLS,
             .data = { .data32 { X11::atom::WM_TAKE_FOCUS, State::timestamp } }
         };
-        logger::debug("Sending WM_TAKE_FOCUS to window: {:#x}", index());
+        logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
         xcb_send_event(X11::_conn(), false, index(), XCB_EVENT_MASK_NO_EVENT, (char*)&event);
     } else {
+        // We need to ignore focus change.
+        int mask[] = { constant::CHILD_EVENT_MASK & ~XCB_EVENT_MASK_FOCUS_CHANGE };
+        window::change_attributes(index(), XCB_CW_EVENT_MASK, std::span{mask});
+
         xcb_set_input_focus(X11::_conn(), XCB_INPUT_FOCUS_POINTER_ROOT,
                             index(), XCB_CURRENT_TIME);
-        logger::debug("Setting input focus to window: {:#x}", index());
+
+        mask[0] = constant::CHILD_EVENT_MASK;
+        window::change_attributes(index(), XCB_CW_EVENT_MASK, std::span{mask});
+
+        logger::debug("Window focus -> setting input focus to window : {:#x}", index());
     }
     _focused = true;
 }
@@ -236,19 +240,19 @@ bool manageable(const uint32_t window_id, const bool must_be_mapped)
     auto attr = get_attribute(window_id);
 
     if (attr->override_redirect) {
-        logger::debug("Ignoring override_redirect");
+        logger::debug("Can't manage window -> override_redirect");
         return false;
     }
 
     if (must_be_mapped && attr->map_state == XCB_MAP_STATE_UNMAPPED) {
-        logger::debug("Ignoring unmapped window");
+        logger::debug("Can't manage window -> state unmapped");
         return false;
     }
 
     auto geo = get_geometry(window_id);
 
     if (!geo) {
-        logger::debug("Can't get window geometry");
+        logger::debug("Can't manage window -> undefined geometry");
         return false;
     }
 
@@ -325,7 +329,7 @@ void grab_buttons(const uint32_t window_id)
     };
     for (const auto b : buttons) {
         xcb_grab_button(X11::_conn(), 0, window_id,
-                        XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC,
+                        XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
                         X11::_conn().xscreen()->root, XCB_NONE, b, XCB_BUTTON_MASK_ANY);
     }
 }

@@ -11,7 +11,7 @@ static inline int _fraction(std::size_t size, float length)
 void Horizontal_container::update_rect()
 {
     const auto& rect = this->rect();
-    logger::debug("Updating Horizontal rect -> x: {}, y: {}, width: {}, height: {}",
+    logger::debug("Hcon rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     int next_pos_x    = rect.pos.x;
@@ -28,7 +28,7 @@ void Horizontal_container::update_rect()
 void Vertical_container::update_rect()
 {
     const auto& rect = this->rect();
-    logger::debug("Updating Vertical rect -> x: {}, y: {}, width: {}, height: {}",
+    logger::debug("Vcon rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     int next_pos_y         = rect.pos.y;
@@ -45,7 +45,7 @@ void Vertical_container::update_rect()
 void Tabbed_container::update_rect()
 {
     const auto& rect = this->rect();
-    logger::debug("Updating Vertical rect -> x: {}, y: {}, width: {}, height: {}",
+    logger::debug("Tcon rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     // Reduce height by tab size

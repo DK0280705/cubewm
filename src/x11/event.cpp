@@ -15,25 +15,26 @@
 
 // xmacro(key, name);
 #define SUPPORTED_EVENTS \
-xmacro(MAP_REQUEST, map_request) \
-xmacro(UNMAP_NOTIFY, unmap_notify) \
 xmacro(DESTROY_NOTIFY, destroy_notify) \
+xmacro(UNMAP_NOTIFY, unmap_notify) \
+xmacro(MAP_REQUEST, map_request) \
+xmacro(ENTER_NOTIFY, enter_notify) \
 xmacro(FOCUS_IN, focus_in) \
 xmacro(FOCUS_OUT, focus_out) \
 xmacro(BUTTON_PRESS, button_press) \
 xmacro(BUTTON_RELEASE, button_release) \
 xmacro(KEY_PRESS, key_press) \
 xmacro(KEY_RELEASE, key_release) \
+xmacro(MOTION_NOTIFY, motion_notify) \
 xmacro(SELECTION_CLEAR, selection_clear)
 
 #define SUPPORTED_XKB_EVENTS \
-xmacro(XKB_NEW_KEYBOARD_NOTIFY, xkb_new_keyboard_notify) \
-xmacro(XKB_MAP_NOTIFY, xkb_map_notify) \
-xmacro(XKB_STATE_NOTIFY, xkb_state_notify)
+xmacro(NEW_KEYBOARD_NOTIFY, xkb_new_keyboard_notify) \
+xmacro(MAP_NOTIFY, xkb_map_notify) \
+xmacro(STATE_NOTIFY, xkb_state_notify)
 
 namespace X11::event {
 
-static std::unordered_set<uint32_t> _ignored_sequences;
 static State* _state;
 
 #define xmacro(key, name) static void _on_##name (const xcb_##name##_event_t& event);
@@ -53,16 +54,15 @@ void init(State& state)
         // Rethrow with different message
         throw std::runtime_error("Another WM is running (X Server)");
     }
-
+    window::grab_buttons(state.conn().xscreen()->root);
 }
 
 static void _handle_xkb(const Event& event)
 {
     switch (event.data->pad0) {
-    #define xmacro(key, name)         \
-    case XCB_##key:                   \
-        logger::debug(#key " event"); \
-        _on_##name (event);           \
+    #define xmacro(key, name)  \
+    case XCB_XKB_##key: \
+        _on_##name (event); \
         return;
     SUPPORTED_XKB_EVENTS
     #undef xmacro
@@ -73,17 +73,12 @@ static void _handle_xkb(const Event& event)
 
 void handle(const Event& event)
 {
-    if (_ignored_sequences.contains(event.data->sequence)) {
-        logger::debug("ignoring sequence {}", event.data->sequence);
-        return;
-    }
     const int type = event.data->response_type & ~0x80;
 
     switch (type) {
-    #define xmacro(key, name)         \
-    case XCB_##key:                   \
-        logger::debug(#key " event"); \
-        _on_##name (event);           \
+    #define xmacro(key, name) \
+    case XCB_##key: \
+        _on_##name (event); \
         break;
     SUPPORTED_EVENTS
     #undef xmacro
@@ -91,7 +86,7 @@ void handle(const Event& event)
         if (extension::xkb.supported() && type == extension::xkb.event_base())
             _handle_xkb(event);
         else
-            logger::debug("Unhandled event type: {}", type);
+            logger::debug("Event handler -> Unhandled event type: {}", type);
         break;
     }
 }
@@ -112,7 +107,7 @@ void _on_unmap_notify(const xcb_unmap_notify_event_t& event)
 {
     Manager<::Window>& win_mgr = _state->manager<::Window>();
     if (!win_mgr.is_managed(event.window)) {
-        logger::debug("ignoring UnmapNotify event, window: {}", event.window);
+        logger::debug("Unmap notify -> ignoring unmanaged window: {:#x}", event.window);
         return;
     }
     ::Window* win = win_mgr.at(event.window);
@@ -130,11 +125,10 @@ void _on_unmap_notify(const xcb_unmap_notify_event_t& event)
 
 void _on_map_request(const xcb_map_request_event_t& event)
 {
-    _ignored_sequences.insert(event.sequence);
     Manager<::Window>& win_mgr = _state->manager<::Window>();
 
     if (win_mgr.is_managed(event.window)) {
-        logger::debug("ignoring managed window: {}", event.window);
+        logger::debug("Map request -> ignoring managed window: {:#x}", event.window);
         return;
     }
 
@@ -152,36 +146,51 @@ void _on_map_request(const xcb_map_request_event_t& event)
     window_list.focus(std::prev(window_list.end(), 1));
 }
 
+void _on_enter_notify(const xcb_enter_notify_event_t& event)
+{
+    logger::debug("Enter notify -> window: {:#x}", event.event);
+    if (event.mode != XCB_NOTIFY_MODE_NORMAL || event.detail == XCB_NOTIFY_DETAIL_INFERIOR) {
+        logger::debug("Enter notify -> ignoring undesired notify");
+        return;
+    }
+    if (_state->manager<::Window>().is_managed(event.event)) {
+        auto* window = _state->manager<::Window>().at(event.event);
+        logger::debug("Enter notify -> window is managed");
+        auto window_list = window->workspace()->window_list();
+        window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+    }
+}
+
 void _on_focus_in(const xcb_focus_in_event_t& event)
 {
     auto& win_mgr = _state->manager<::Window>();
     // Update focus if root window received focus in
     if (event.event == _state->conn().xscreen()->root) {
         auto* workspc = _state->current_workspace();
-        logger::debug("Refocusing focused window");
+        logger::debug("Focus in -> refocusing focused window");
         if (auto* f = workspc->window_list().current())
             f->focus();
     }
 
     if (!win_mgr.is_managed(event.event)) {
-        logger::debug("Ignoring unmanaged window");
+        logger::debug("Focus in -> ignoring unmanaged window");
         return;
     }
 
     if (event.mode == XCB_NOTIFY_MODE_GRAB || event.mode == XCB_NOTIFY_MODE_UNGRAB) {
-        logger::debug("Ignoring keyboard grab focus notify");
+        logger::debug("Focus in -> ignoring keyboard grab focus notify");
         return;
     }
 
     if (event.detail == XCB_NOTIFY_DETAIL_POINTER) {
-        logger::debug("Ignoring detail pointer notify");
+        logger::debug("Focus in -> ignoring detail pointer notify");
         return;
     }
 
     ::Window* win = win_mgr.at(event.event);
     auto& window_list = win->workspace()->window_list();
     if (win == window_list.current()) {
-        logger::debug("Ignoring current focused");
+        logger::debug("Focus in -> ignoring current focused");
         return;
     }
     window_list.focus(std::find(window_list.begin(), window_list.end(), win));
@@ -243,27 +252,29 @@ void _on_focus_out(const xcb_focus_out_event_t& event)
             break;
         }
     }();
-    logger::debug("Focus lost -> window: {:#x}, name: {}, detail: {}, mode: {}",
+    logger::debug("Focus out -> window: {:#x}, name: {}, detail: {}, mode: {}",
                   event.event, win_name, detail, mode);
 #endif
 }
 
 void _on_button_press(const xcb_button_press_event_t& event)
 {
-    logger::debug("Button press on -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
-    if (_state->manager<::Window>().is_managed(event.event)) {
-        auto* window = _state->manager<::Window>().at(event.event);
-        auto& window_list = window->workspace()->window_list();
-        xcb_allow_events(_state->conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
-        if (window_list.current() != window)
-            window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+    logger::debug("Button press -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
+    if (event.child != XCB_NONE) {
+        if (_state->manager<::Window>().is_managed(event.child)) {
+            logger::debug("Button press -> found child window: {:#x}", event.child);
+            auto* window = _state->manager<::Window>().at(event.child);
+            auto& window_list = window->workspace()->window_list();
+            if (window_list.current() != window)
+                window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+        }
     }
+    xcb_allow_events(_state->conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
 }
 
 void _on_button_release(const xcb_button_release_event_t& event)
 {
-    logger::debug("Button release on -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
-    logger::debug("Window is {}managed", _state->manager<::Window>().is_managed(event.event) ? "" : "not ");
+    logger::debug("Button release -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
 }
 
 void _on_key_press(const xcb_key_press_event_t& event)
@@ -271,18 +282,26 @@ void _on_key_press(const xcb_key_press_event_t& event)
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(_state->keyboard().state(), event.detail);
     char keysym_name[32];
     xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
-    logger::debug("Key pressed: {}", keysym_name);
+    logger::debug("Key press -> key: {}", keysym_name);
 }
 
 void _on_key_release(const xcb_key_release_event_t& event)
 {
+    xkb_keysym_t keysym = xkb_state_key_get_one_sym(_state->keyboard().state(), event.detail);
+    char keysym_name[32];
+    xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
+    logger::debug("Key release -> key: {}", keysym_name);
+}
 
+void _on_motion_notify(const xcb_motion_notify_event_t& event)
+{
+    // Let's silent this thing.
 }
 
 void _on_selection_clear(const xcb_selection_clear_event_t& event)
 {
     if (event.selection != X11::atom::WM_SN) {
-        logger::debug("Selection clear for unknown selection: {}", event.selection);
+        logger::debug("Selection clear -> unknown selection: {}", event.selection);
         return;
     }
     _state->server().stop();
