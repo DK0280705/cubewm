@@ -10,7 +10,7 @@ void print(const std::string& msg);
 
 inline void log(const char* label, const std::string& msg)
 {
-    print(fmt::format("{} {}", label, msg)); 
+    print(fmt::format("{} {}", label, msg));
 }
 
 template <typename...T>

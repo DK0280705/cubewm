@@ -56,6 +56,21 @@ void init(State& state)
 
 }
 
+static void _handle_xkb(const Event& event)
+{
+    switch (event.data->pad0) {
+    #define xmacro(key, name)         \
+    case XCB_##key:                   \
+        logger::debug(#key " event"); \
+        _on_##name (event);           \
+        return;
+    SUPPORTED_XKB_EVENTS
+    #undef xmacro
+    default:
+        return;
+    }
+}
+
 void handle(const Event& event)
 {
     if (_ignored_sequences.contains(event.data->sequence)) {
@@ -63,21 +78,8 @@ void handle(const Event& event)
         return;
     }
     const int type = event.data->response_type & ~0x80;
-    if (extension::xkb.supported() && type == extension::xkb.event_base()) {
-        switch(event.data->pad0) {
-        #define xmacro(key, name)         \
-        case XCB_##key:                   \
-            logger::debug(#key " event"); \
-            _on_##name (event);           \
-            return;
-        SUPPORTED_XKB_EVENTS
-        #undef xmacro
-        default:
-            return;
-        }
-    }
 
-    switch (type){
+    switch (type) {
     #define xmacro(key, name)         \
     case XCB_##key:                   \
         logger::debug(#key " event"); \
@@ -86,7 +88,10 @@ void handle(const Event& event)
     SUPPORTED_EVENTS
     #undef xmacro
     default:
-        logger::debug("Unhandled event type: {}", type);
+        if (extension::xkb.supported() && type == extension::xkb.event_base())
+            _handle_xkb(event);
+        else
+            logger::debug("Unhandled event type: {}", type);
         break;
     }
 }
@@ -280,7 +285,6 @@ void _on_selection_clear(const xcb_selection_clear_event_t& event)
         logger::debug("Selection clear for unknown selection: {}", event.selection);
         return;
     }
-    // Suicide signal
     _state->server().stop();
 }
 

@@ -3,6 +3,7 @@
 #include "../window.h"
 #include "../helper.h"
 #include <span>
+#include <cstdint>
 
 class State;
 class Workspace;
