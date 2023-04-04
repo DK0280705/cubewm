@@ -1,5 +1,6 @@
 #include "../state.h"
 #include "../connection.h"
+#include "ewmh.h"
 #include "keyboard.h"
 #include "server.h"
 #include "event.h"
@@ -12,24 +13,36 @@ namespace X11 {
 Server::Server(State& state)
     : ::Server(state)
 {
+    // Init X11 first, so we can call the xcb functions.
     X11::init(_state);
+
+    // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
+
+    auto& mon_mgr = _state.manager<::Monitor>();
+    auto& wor_mgr = _state.manager<::Workspace>();
+    auto& win_mgr = _state.manager<::Window>();
+
+    // Register emwh functions
+    _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
+    win_mgr.connect(0, ewmh::update_client_list);
+    wor_mgr.connect(0, ewmh::update_desktop_names);
+    wor_mgr.connect(0, ewmh::update_number_of_desktops);
+
+    // Default, will add randr soon
+    auto* xscreen = _state.conn().xscreen();
+    mon_mgr.at(0)->rect({
+        { 0, 0 },
+        { xscreen->width_in_pixels, xscreen->height_in_pixels }
+    });
+
     // Get default workspace
     auto* workspc = _state.current_workspace();
     assert_debug(workspc, "Expected default workspace not null");
 
-    // Default, will add randr soon
-    _state.manager<Monitor>().accept([&](Manager<Monitor>& mgr) {
-        if (mgr.empty())
-            mgr.manage(0);
-        auto* xscreen = state.conn().xscreen();
-        mgr.at(0)->rect({
-            { 0, 0 },
-            { xscreen->width_in_pixels, xscreen->height_in_pixels }
-        });
-    });
-
+    // <Manage all existing windows if available.
     X11::window::load_all(_state);
+    // Make current workspace last added window focused.
     auto& window_list = workspc->window_list();
     if (window_list.current())
         window_list.focus(std::prev(window_list.end(), 1));

@@ -4,6 +4,10 @@
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
+#include <vector>
+#include <unordered_map>
+#include <functional>
+
 /**
  * Defines helper classes that can be used as mixins
  * Also functions that make that classes
@@ -40,8 +44,9 @@ concept derived_from = std::is_base_of<U, T>::value;
 // This is not a singleton
 // Just a fancy way to init something statically
 template <typename Derived>
-struct Init_once
+class Init_once
 {
+public:
     static Derived& init(auto&&... args)
     {
         static Derived* pinstance = nullptr;
@@ -50,6 +55,28 @@ struct Init_once
             throw std::runtime_error("init once");
         pinstance = &instance;
         return instance;
+    }
+};
+
+template <typename T, typename K = unsigned char>
+class Observable
+{
+    using Observer           = std::function<void(const T&)>;
+    using Observer_container = std::unordered_map<K, std::vector<Observer>>;
+
+    Observer_container _observers;
+
+public:
+    inline void connect(K&& key, Observer observer)
+    {
+        _observers[std::forward<K&&>(key)].emplace_back(std::move(observer));
+    }
+
+    inline void notify(K&& key) const
+    {
+        if (_observers.contains(std::forward<K&&>(key)))
+            for (const auto& o : _observers.at(std::forward<K&&>(key)))
+                o(*static_cast<const T*>(this));
     }
 };
 

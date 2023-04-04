@@ -4,6 +4,7 @@
 #include "atom.h"
 #include "constant.h"
 #include "extension.h"
+#include "ewmh.h"
 #include "window.h"
 #include "event.h"
 #include <algorithm>

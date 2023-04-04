@@ -16,6 +16,7 @@ void init(::State& state);
 // Discouraged for usage, use State::conn() instead.
 // Only use if we desperately can't use State.
 const Connection& _conn();
+unsigned int _root_window_id();
 unsigned int _main_window_id();
 
 namespace detail {

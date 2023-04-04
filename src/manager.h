@@ -5,26 +5,25 @@
  */
 #include "managed.h"
 #include "helper.h"
-#include "visitor.h"
 #include <unordered_map>
 
 class Connection;
 
 template <derived_from<Managed> Managed_t>
 class Manager : public Init_once<Manager<Managed_t>>
-              , public Visitable_static<Manager<Managed_t>>
+              , public Observable<Manager<Managed_t>>
 {
 public:
-    using Managed_id        = unsigned int;
-    using Managed_container = std::unordered_map<Managed_id, Managed_t*>;
+    using Managed_id         = unsigned int;
+    using Managed_container  = std::unordered_map<Managed_id, Managed_t*>;
 
     using Iterator       = typename std::unordered_map<Managed_id, Managed_t*>::iterator;
     using Const_iterator = typename std::unordered_map<Managed_id, Managed_t*>::const_iterator;
 
 private:
-    Managed_container _managed;
+    Managed_container  _managed;
 
-public:   
+public:
     Manager() noexcept = default;
 
     Manager(const Manager&)        = delete;
@@ -53,6 +52,7 @@ public:
     {
         Managed_t* man = new Derived_t(id, std::forward<Args>(args)...);
         _managed.emplace(id, man);
+        this->notify(0);
         return man;
     }
 
@@ -60,5 +60,6 @@ public:
     {
         delete _managed.at(id);
         _managed.erase(id);
+        this->notify(0);
     }
 };

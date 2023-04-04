@@ -184,6 +184,11 @@ const Connection& _conn()
     return *_pconn;
 }
 
+unsigned int _root_window_id()
+{
+    return _pconn->xscreen()->root;
+}
+
 unsigned int _main_window_id()
 {
     return _main_window;
