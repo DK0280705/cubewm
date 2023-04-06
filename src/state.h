@@ -18,6 +18,9 @@ public:
     {
         current_workspace_update,
         current_monitor_update,
+        window_manager_update,
+        monitor_manager_update,
+        workspace_manager_update,
     };
     using Timestamp          = unsigned int;
     static Timestamp timestamp; // It just a timestamp duh...
@@ -44,6 +47,9 @@ public:
         , _mon_mgr(Manager<Monitor>::init())
         , _wor_mgr(Manager<Workspace>::init())
     {
+        _win_mgr.connect(0, [&](const auto&) { this->notify(State::window_manager_update); });
+        _mon_mgr.connect(0, [&](const auto&) { this->notify(State::monitor_manager_update); });
+        _wor_mgr.connect(0, [&](const auto&) { this->notify(State::workspace_manager_update); });
         // Set default workspace, ensure it never null.
         _current_workspace = _wor_mgr.manage(0);
         // Set default monitor, at worst, atleast it handles one monitor.

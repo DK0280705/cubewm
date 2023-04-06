@@ -19,16 +19,14 @@ Server::Server(State& state)
     // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
 
-    auto& mon_mgr = _state.manager<::Monitor>();
-    auto& wor_mgr = _state.manager<::Workspace>();
-    auto& win_mgr = _state.manager<::Window>();
-
     // Register emwh functions
     _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
-    win_mgr.connect(0, ewmh::update_client_list);
-    wor_mgr.connect(0, ewmh::update_desktop_names);
-    wor_mgr.connect(0, ewmh::update_number_of_desktops);
+    _state.connect(State::window_manager_update, ewmh::update_client_list);
+    _state.connect(State::workspace_manager_update, ewmh::update_desktop_names);
+    _state.connect(State::workspace_manager_update, ewmh::update_number_of_desktops);
+    _state.notify_all();
 
+    auto& mon_mgr = _state.manager<::Monitor>();
     // Default, will add randr soon
     auto* xscreen = _state.conn().xscreen();
     mon_mgr.at(0)->rect({

@@ -13,7 +13,11 @@
  * Also functions that make that classes
  */
 
-#define DECLARE_ITERATOR_WRAPPER(container) \
+#define DECLARE_CONTAINER_WRAPPER(container) \
+    inline bool empty() const noexcept \
+    { return container.empty(); } \
+    inline typename decltype(container)::size_type size() const noexcept \
+    { return container.size(); } \
     inline typename decltype(container)::iterator begin() noexcept \
     { return container.begin(); } \
     inline typename decltype(container)::iterator end() noexcept \
@@ -76,6 +80,13 @@ public:
     {
         if (_observers.contains(std::forward<K&&>(key)))
             for (const auto& o : _observers.at(std::forward<K&&>(key)))
+                o(*static_cast<const T*>(this));
+    }
+
+    inline void notify_all() const
+    {
+        for (const auto& pair : _observers)
+            for (const auto& o : pair.second)
                 o(*static_cast<const T*>(this));
     }
 };

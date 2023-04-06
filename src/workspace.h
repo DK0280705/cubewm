@@ -23,7 +23,7 @@ public:
     inline bool contains(Window* con) const
     { return _pos.contains(con); }
 
-    DECLARE_ITERATOR_WRAPPER(_list)
+    DECLARE_CONTAINER_WRAPPER(_list)
 
 public:
     void add(Window* window);

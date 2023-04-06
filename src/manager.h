@@ -32,19 +32,13 @@ public:
     auto operator=(Manager&&)      = delete;
 
 public:
-    inline bool empty() const noexcept
-    { return _managed.empty(); }
-
-    inline std::size_t size() const noexcept
-    { return _managed.size(); }
-
     inline Managed_t* at(const Managed_id id) const
     { return _managed.at(id); }
 
     inline bool is_managed(const Managed_id w) const
     { return _managed.contains(w); }
 
-    DECLARE_ITERATOR_WRAPPER(_managed)
+    DECLARE_CONTAINER_WRAPPER(_managed)
 
 public:
     template <derived_from<Managed_t> Derived_t = Managed_t, typename...Args>

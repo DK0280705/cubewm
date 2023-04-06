@@ -14,13 +14,7 @@ public:
     using Const_iterator = typename std::list<Node<T>*>::const_iterator;
 
 public:
-    inline bool empty() const
-    { return _children.empty(); }
-
-    inline std::size_t size() const
-    { return _children.size(); }
-
-    DECLARE_ITERATOR_WRAPPER(_children)
+    DECLARE_CONTAINER_WRAPPER(_children)
 
 public:
     inline Node<T>* parent() const
