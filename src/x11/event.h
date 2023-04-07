@@ -4,6 +4,7 @@
 class State;
 
 namespace X11 {
+class Connection;
 
 struct Event
 {
@@ -15,7 +16,7 @@ struct Event
 };
 
 namespace event {
-void init(State& state);
-void handle(const Event& event);
+void init(const X11::Connection& conn);
+void handle(State& state, const Event& event);
 }
 }

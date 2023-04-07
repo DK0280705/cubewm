@@ -14,7 +14,7 @@ Server::Server(State& state)
     : ::Server(state)
 {
     // Init X11 first, so we can call the xcb functions.
-    X11::init(_state);
+    X11::init(_state.conn());
 
     // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
@@ -62,7 +62,7 @@ void Server::_main_loop()
         select(xcb_fd + 1, &in_fds, nullptr, nullptr, nullptr);
 
         while ((ev = xcb_poll_for_event(_state.conn()))) {
-            X11::event::handle({ ev });
+            X11::event::handle(_state, { ev });
             free(ev);
             ev = nullptr;
             xcb_flush(_state.conn());

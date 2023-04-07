@@ -4,6 +4,7 @@
 #include "../connection.h"
 #include "../state.h"
 #include "../logger.h"
+#include "x11.h"
 #include <limits>
 #include <algorithm>
 #include <xcb/xcb.h>
@@ -179,7 +180,7 @@ void Window::focus()
             .format = 32,
             .window = index(),
             .type = X11::atom::WM_PROTOCOLS,
-            .data = { .data32 { X11::atom::WM_TAKE_FOCUS, State::timestamp } }
+            .data = { .data32 { X11::atom::WM_TAKE_FOCUS, State::timestamp() } }
         };
         logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
         xcb_send_event(X11::_conn(), false, index(), XCB_EVENT_MASK_NO_EVENT, (char*)&event);
@@ -219,7 +220,7 @@ Window_frame::Window_frame(Window* window)
         1,
         constant::FRAME_EVENT_MASK
     };
-    xcb_create_window(X11::_conn(), XCB_COPY_FROM_PARENT, index(), X11::_conn().xscreen()->root,
+    xcb_create_window(X11::_conn(), XCB_COPY_FROM_PARENT, index(), X11::_root_window_id(),
                       window->rect().pos.x, window->rect().pos.y, window->rect().size.x, window->rect().size.y,
                       // Draw border later
                       0, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
@@ -330,7 +331,7 @@ void grab_buttons(const uint32_t window_id)
     for (const auto b : buttons) {
         xcb_grab_button(X11::_conn(), 0, window_id,
                         XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-                        X11::_conn().xscreen()->root, XCB_NONE, b, XCB_BUTTON_MASK_ANY);
+                        X11::_root_window_id(), XCB_NONE, b, XCB_BUTTON_MASK_ANY);
     }
 }
 

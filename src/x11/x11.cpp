@@ -36,7 +36,7 @@ static void _acquire_first_timestamp(const Connection& conn)
     xcb_generic_event_t* event = nullptr;
     while ((event = xcb_wait_for_event(conn)))
         if ((event->response_type & 0x7F) == XCB_PROPERTY_NOTIFY) {
-            State::timestamp = ((xcb_property_notify_event_t*)event)->time;
+            State::timestamp().update(((xcb_property_notify_event_t*)event)->time);
             free(event);
             return;
         } else free(event);
@@ -52,7 +52,7 @@ static void _acquire_selection_owner(const Connection&  conn,
     assert_runtime(!(reply && reply->owner != XCB_NONE && !replace_wm), "Another WM is running (Selection Owner)");
 
     // This will notify selection clear event on another wm
-    xcb_set_selection_owner(conn, main_window, atom::WM_SN, State::timestamp);
+    xcb_set_selection_owner(conn, main_window, atom::WM_SN, State::timestamp());
 
     // Wait for another wm to exit
     if (reply->owner != XCB_NONE) {
@@ -78,7 +78,7 @@ static void _acquire_selection_owner(const Connection&  conn,
         .format        = 32,
         .window        = conn.xscreen()->root,
         .type          = atom::MANAGER,
-        .data = {.data32 = {State::timestamp, atom::WM_SN, main_window}}};
+        .data = {.data32 = {State::timestamp(), atom::WM_SN, main_window}}};
 
     xcb_send_event(conn, 0, conn.xscreen()->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
 }
@@ -156,31 +156,30 @@ static xcb_window_t _setup_main_window(const Connection& conn)
     return main_window;
 }
 
-void init(::State& state)
+void init(const X11::Connection& conn)
 {
-    const Connection& conn = state.conn();
     _pconn = &conn;
 
     atom::init();
 
     _acquire_first_timestamp(conn);
-    logger::debug("First timestamp: {}", State::timestamp);
+    logger::debug("First timestamp: {}", State::timestamp());
 
     _main_window = _setup_main_window(conn);
     _acquire_selection_owner(conn, _main_window, config::replace_wm);
     logger::debug("Selection owner acquired");
 
-    event::init(state);
-
-    extension::init(conn);
     _setup_hints(conn, _main_window);
+
+    event::init(conn);
+    extension::init(conn);
 }
 
 const Connection& _conn()
 {
     // Nahh if statement is stupid.
     // This is already stupid, let the application blow up
-    // if someone put X11::_conn() before X11::init(state)
+    // if someone put X11::_conn() before X11::init(conn)
     return *_pconn;
 }
 

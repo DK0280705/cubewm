@@ -10,6 +10,18 @@
 #include <stdexcept>
 #include <type_traits>
 
+class Timestamp
+{
+    unsigned int _time = 0;
+
+public:
+    operator unsigned int() const
+    { return _time; }
+
+    void update(unsigned int time)
+    { _time = time; }
+};
+
 class State final : public Init_once<State>
                   , public Observable<State>
 {
@@ -22,8 +34,6 @@ public:
         monitor_manager_update,
         workspace_manager_update,
     };
-    using Timestamp          = unsigned int;
-    static Timestamp timestamp; // It just a timestamp duh...
 
 private:
     // The connection to wayland and x11
@@ -32,28 +42,38 @@ private:
     Manager<Window>&    _win_mgr;
     Manager<Monitor>&   _mon_mgr;
     Manager<Workspace>& _wor_mgr;
-    // The server manager
-    Server*             _server;
-    // The keyboard manager
-    Keyboard*           _keyboard;
+    // The server manager, late initialization.
+    Server*             _server{};
+    // The keyboard manager, late initialization.
+    Keyboard*           _keyboard{};
     // Current focused Workspace and Monitor
     Workspace*          _current_workspace;
     Monitor*            _current_monitor;
 
+    static Timestamp    _timestamp;
+
 public:
+    State(const State&) = default;
+    State(State&&) = delete;
+    State& operator=(const State&) = delete;
+    State& operator=(State&&) = delete;
+
     State(Connection& conn)
         : _conn(conn)
         , _win_mgr(Manager<Window>::init())
         , _mon_mgr(Manager<Monitor>::init())
         , _wor_mgr(Manager<Workspace>::init())
+        // Set default workspace, ensure it never null.
+        , _current_workspace(_wor_mgr.manage(0))
+        // Set default monitor, at worst, atleast it handles one monitor.
+        , _current_monitor(_mon_mgr.manage(0))
     {
+        // Connect signals to managers.
         _win_mgr.connect(0, [&](const auto&) { this->notify(State::window_manager_update); });
         _mon_mgr.connect(0, [&](const auto&) { this->notify(State::monitor_manager_update); });
         _wor_mgr.connect(0, [&](const auto&) { this->notify(State::workspace_manager_update); });
-        // Set default workspace, ensure it never null.
-        _current_workspace = _wor_mgr.manage(0);
-        // Set default monitor, at worst, atleast it handles one monitor.
-        _current_monitor = _mon_mgr.manage(0);
+
+        // Add current workspace to current monitor, maintaining tree.
         _current_monitor->add(_current_workspace);
         // Set rect for basic functionality.
         _current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
@@ -120,6 +140,9 @@ public:
 
     inline Monitor* current_monitor() const
     { return _current_monitor; }
+
+    static inline Timestamp& timestamp()
+    { return _timestamp; }
 };
 
 template <>

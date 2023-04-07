@@ -11,7 +11,7 @@
 #include <array>
 #include <getopt.h>
 
-uint32_t State::timestamp = 0; // Avoid linker error.
+Timestamp State::_timestamp{}; // Avoid linker error.
 
 static bool _parse_arguments(int argc, char* const argv[])
 {
