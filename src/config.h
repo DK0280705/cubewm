@@ -8,9 +8,9 @@ namespace config
 {
 extern bool replace_wm;
 
-extern bool xinerama_enabled;
+extern bool enable_xinerama;
 
-extern bool randr_enabled;
+extern bool enable_randr;
 
 extern unsigned border_size;
 

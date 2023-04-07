@@ -35,7 +35,7 @@ static bool _parse_arguments(int argc, char* const argv[])
             config::replace_wm = true;
             break;
         case 'x':
-            config::xinerama_enabled = true;
+            config::enable_xinerama = true;
             break;
         default:
             logger::error("Unrecognized options");

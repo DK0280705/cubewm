@@ -1,0 +1,4 @@
+enable_xinerama: false
+enable_randr: false
+replace_wm: false
+border_size: "4px"
