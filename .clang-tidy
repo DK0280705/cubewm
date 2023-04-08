@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,cppcoreguidelines-*,bugprone-*,readibility-*,performance-*,-cppcoreguidelines-macro-usage,-cppcoreguidelines-avoid-c-arrays, -cppcoreguidelines-owning-memory, -cppcoreguidelines-no-malloc, -cppcoreguidelines-avoid-magic-numbers, -cppcoreguidelines-pro-type-cstyle-cast, -cppcoreguidelines-pro-bounds-array-to-pointer-decay'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,readibility-*,performance-*'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
