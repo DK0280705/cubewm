@@ -1,5 +1,6 @@
 #include "atom.h"
 #include "constant.h"
+#include "keyboard.h"
 #include "window.h"
 #include "../connection.h"
 #include "../state.h"
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace X11 {
@@ -131,7 +133,7 @@ static bool _is_alt_focus(const xcb_window_t window_id)
 }
 } // namespace window
 
-Window::Window(Managed_id id)
+Window::Window(Index id)
     : ::Window(id)
 {
     // Get window events
@@ -226,7 +228,7 @@ Window_frame::Window_frame(Window* window)
                       0, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
                       mask, values);
     window::change_property(window::prop::replace, index(), XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, std::span{constant::FRAME_CLASS_NAME});
-    logger::debug("Created X11 frame window {:#x}", index());
+    logger::debug("Window_frame -> created X11 frame {:#x}", index());
 
     window->busy(true);
     xcb_reparent_window(X11::_conn(), window->index(), index(), 0, 0);
@@ -284,6 +286,8 @@ void load_all(State& state)
 
         ::Workspace* ws = load_workspace(state, static_cast<X11::Window*>(window));
 
+        window::grab_keys(state.keyboard(), window->index());
+
         place_to(ws, window);
         ws->window_list().add(window);
         xcb_map_window(X11::_conn(), window->index());
@@ -315,9 +319,14 @@ Workspace* load_workspace(State& state, X11::Window* window)
     return (wor_mgr.is_managed(ws_id)) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
 }
 
-void grab_keys(::Keyboard& keyboard, const uint32_t window_id)
+void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id)
 {
-
+    for (const auto& [keybind, _] : keyboard.manager()) {
+        uint8_t keycode = keysym_to_keycode(keybind.keysym);
+        logger::debug("Grab keys -> keysym: {}, keycode: {}", keybind.keysym, keycode);
+        xcb_grab_key(X11::_conn(), 0, window_id, keybind.modifiers, keycode,
+                     XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+    }
 }
 
 void grab_buttons(const uint32_t window_id)

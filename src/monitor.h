@@ -4,10 +4,10 @@
 #include "container.h"
 
 class Monitor : public Node<Container>
-              , public Managed
+              , public Managed<unsigned int>
 {
 public:
-    Monitor(const Managed_id id) noexcept
+    Monitor(const Index id) noexcept
         : Managed(id)
     {}
 

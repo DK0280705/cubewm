@@ -46,7 +46,7 @@ public:
     Layout_container(Workspace* ws) noexcept
         : _ws(ws)
     {}
-   
+
     virtual ~Layout_container()
     { for (const auto& c : *this) delete c; };
 };
@@ -59,7 +59,7 @@ public:
     {}
 
     void update_rect() override;
-}; 
+};
 
 class Vertical_container : public Layout_container
 {

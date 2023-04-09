@@ -36,7 +36,7 @@ public:
     };
 
 private:
-    // The connection to wayland and x11
+    // The connection to wayland or x11 or whatever display i want to support
     Connection&         _conn;
     // Managers
     Manager<Window>&    _win_mgr;
@@ -53,10 +53,10 @@ private:
     static Timestamp    _timestamp;
 
 public:
-    State(const State&) = default;
-    State(State&&) = delete;
+    State(const State&)            = default;
+    State(State&&)                 = delete;
     State& operator=(const State&) = delete;
-    State& operator=(State&&) = delete;
+    State& operator=(State&&)      = delete;
 
     State(Connection& conn)
         : _conn(conn)
@@ -82,18 +82,16 @@ public:
     ~State()
     {
         // Recursively clear the tree.
-        for (const auto& mon : _mon_mgr) {
-            delete mon.second;
-        }
+        _mon_mgr.clear();
     }
 
 public:
     // Late initialization, can't figure out a better way to do.
-    template <derived_from<Keyboard> T>
+    template <std::derived_from<Keyboard> T>
     constexpr void init_keyboard(auto&&... args)
     { _keyboard = &T::init(std::forward<decltype(args)>(args)...); }
 
-    template <derived_from<Server> T>
+    template <std::derived_from<Server> T>
     constexpr void init_server(auto&&... args)
     { _server = &T::init(std::forward<decltype(args)>(args)...); }
 
@@ -101,11 +99,11 @@ public:
     constexpr const Connection& conn() const noexcept
     { return _conn; }
 
-    template <derived_from<Managed> T>
+    template <std::derived_from<Managed<unsigned int>> T>
     constexpr Manager<T>& manager() noexcept
     { throw std::exception(); }
 
-    template <derived_from<Managed> T>
+    template <std::derived_from<Managed<unsigned int>> T>
     constexpr const Manager<T>& manager() const noexcept
     { throw std::exception(); }
 
@@ -146,6 +144,10 @@ public:
 };
 
 template <>
+constexpr Manager<Window>& State::manager() noexcept
+{ return _win_mgr; }
+
+template <>
 constexpr Manager<Monitor>& State::manager() noexcept
 { return _mon_mgr; }
 
@@ -154,7 +156,7 @@ constexpr Manager<Workspace>& State::manager() noexcept
 { return _wor_mgr; }
 
 template <>
-constexpr Manager<Window>& State::manager() noexcept
+constexpr const Manager<Window>& State::manager() const noexcept
 { return _win_mgr; }
 
 template <>
@@ -164,7 +166,3 @@ constexpr const Manager<Monitor>& State::manager() const noexcept
 template <>
 constexpr const Manager<Workspace>& State::manager() const noexcept
 { return _wor_mgr; }
-
-template <>
-constexpr const Manager<Window>& State::manager() const noexcept
-{ return _win_mgr; }

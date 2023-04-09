@@ -42,19 +42,18 @@ inline void assert_runtime(const bool expr, const std::string& msg)
 template <typename T>
 concept pointer = std::is_pointer<T>::value;
 
-template <typename T, typename U>
-concept derived_from = std::is_base_of<U, T>::value;
-
 // This is not a singleton
 // Just a fancy way to init something statically
 template <typename Derived>
 class Init_once
 {
 public:
-    static Derived& init(auto&&... args)
+    template <typename...Args>
+    requires (std::constructible_from<Derived, Args...>)
+    static Derived& init(Args&&... args)
     {
         static Derived* pinstance = nullptr;
-        static Derived instance(std::forward<decltype(args)>(args)...);
+        static Derived instance(std::forward<Args>(args)...);
         if (pinstance)
             throw std::runtime_error("init once");
         pinstance = &instance;
@@ -73,13 +72,14 @@ class Observable
 public:
     inline void connect(K&& key, Observer observer)
     {
-        _observers[std::forward<K&&>(key)].emplace_back(std::move(observer));
+        _observers[std::forward<K>(key)].emplace_back(std::move(observer));
     }
 
     inline void notify(K&& key) const
     {
-        if (_observers.contains(std::forward<K&&>(key)))
-            for (const auto& o : _observers.at(std::forward<K&&>(key)))
+        const auto it = _observers.find(std::forward<K>(key));
+        if (it != _observers.end())
+            for (const auto& o : it->second)
                 o(*static_cast<const T*>(this));
     }
 

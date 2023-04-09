@@ -16,4 +16,6 @@ public:
     virtual ~Keyboard();
 };
 
+xcb_keycode_t keysym_to_keycode(xcb_keysym_t keysym);
+
 }

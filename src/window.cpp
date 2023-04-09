@@ -53,8 +53,7 @@ Window* find_window_by_position(Workspace* ws, const Point2D& pos)
 {
     for (const auto& win : ws->window_list()) {
         const auto& crect = win->rect();
-        if ((crect.pos.x <= pos.x && crect.size.x >= pos.x) &&
-            (crect.pos.y <= pos.y && crect.size.y >= pos.y))
+        if (Vector2D::contains(crect, pos))
             return win;
     }
     return nullptr;

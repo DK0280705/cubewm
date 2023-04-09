@@ -38,7 +38,7 @@ public:
     { return _instance; }
 
 public:
-    Window(Managed_id id);
+    Window(Index id);
 
     void update_rect() override;
 
@@ -72,7 +72,7 @@ bool manageable(const uint32_t window_id, const bool must_be_mapped = false);
 void load_all(State& state);
 Workspace* load_workspace(State& state, X11::Window* window);
 
-void grab_keys(Keyboard& keyboard, const uint32_t window_id);
+void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id);
 
 void grab_buttons(const uint32_t window_id);
 

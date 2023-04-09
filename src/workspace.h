@@ -32,13 +32,13 @@ public:
 };
 
 class Workspace : public Node<Container>
-                , public Managed
+                , public Managed<unsigned int>
 {
     Window_list _window_list;
     std::string _name;
 
 public:
-    Workspace(const Managed_id id) noexcept
+    Workspace(const Index id) noexcept
         : Managed(id)
     {
         // by default the name is the id.

@@ -1,7 +1,6 @@
 #include "extension.h"
 #include "../connection.h"
 #include "../logger.h"
-#include "x11.h"
 #include <xcb/randr.h>
 #include <xcb/shape.h>
 // C++ unfriendly

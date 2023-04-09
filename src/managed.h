@@ -1,18 +1,19 @@
 #pragma once
 
+template <typename Key>
 class Managed
 {
 public:
-    using Managed_id = unsigned int;
+    using Index = Key;
 
 private:
-    Managed_id _id;
+    Index _id;
 
 public:
-    Managed(const Managed_id id) noexcept
+    Managed(const Index& id) noexcept
         : _id(id)
     {}
 
-    inline Managed_id index() const noexcept
+    inline Index index() const noexcept
     { return _id; }
 };

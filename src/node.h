@@ -2,12 +2,13 @@
 #include "helper.h"
 #include <concepts>
 #include <list>
+#include <tuple>
 
 template <typename T>
 class Node : public T
 {
+    Node<T>*            _parent;
     std::list<Node<T>*> _children;
-    Node<T>* _parent;
 
 public:
     using Iterator       = typename std::list<Node<T>*>::iterator;
@@ -17,10 +18,10 @@ public:
     DECLARE_CONTAINER_WRAPPER(_children)
 
 public:
-    inline Node<T>* parent() const
+    inline Node<T>* parent() const noexcept
     { return _parent; }
 
-    inline void parent(Node<T>* parent)
+    inline void parent(Node<T>* parent) noexcept
     { _parent = parent; }
 
 public:
@@ -50,8 +51,8 @@ public:
         auto it_pos = std::next(position, (shift_pos > 0) ? 1 + shift_pos : shift_pos);
         _children.splice(it_pos, _children, position);
     }
-    
-    virtual ~Node() = default;
+
+    virtual ~Node() noexcept = default;
 };
 
 template <typename T>

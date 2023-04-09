@@ -133,6 +133,7 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
         return;
 
     ::Window* win = win_mgr.manage<X11::Window>(event.window);
+    window::grab_keys(state.keyboard(), win->index());
     place_to(state.current_workspace(), win);
     xcb_map_window(state.conn(), win->index());
     xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, win->index());
@@ -277,9 +278,17 @@ void _on_button_release(State&, const xcb_button_release_event_t& event)
 void _on_key_press(State& state, const xcb_key_press_event_t& event)
 {
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(state.keyboard().state(), event.detail);
+    uint16_t modifiers = event.state & ~XCB_MOD_MASK_LOCK;
+
     char keysym_name[32];
     xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
     logger::debug("Key press -> key: {}", keysym_name);
+
+    Keybind keybind = {keysym, modifiers};
+    if (state.keyboard().manager().is_managed(keybind)) {
+        logger::debug("Key press -> found binding for keybind");
+        (*state.keyboard().manager().at(keybind))(state);
+    }
 }
 
 void _on_key_release(State& state, const xcb_key_release_event_t& event)
@@ -325,6 +334,7 @@ void _on_xkb_state_notify(State& state, const xcb_xkb_state_notify_event_t& even
                           event.latchedGroup,
                           event.lockedGroup);
     if (event.changed & XCB_XKB_STATE_PART_GROUP_STATE) {
+        logger::debug("XKB state notify -> Group state changed");
         xcb_ungrab_key(state.conn(), XCB_GRAB_ANY, state.conn().xscreen()->root, XCB_MOD_MASK_ANY);
         window::grab_keys(state.keyboard(), state.conn().xscreen()->root);
     }

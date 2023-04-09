@@ -35,7 +35,7 @@ void Vertical_container::update_rect()
     const int f_height     = _fraction(size(), (float)rect.size.y);
     for (const auto& child : *this) {
         child->rect({
-            { rect.pos.x, next_pos_y }, 
+            { rect.pos.x, next_pos_y },
             { rect.size.x, f_height  }
         });
         next_pos_y += f_height;

@@ -5,7 +5,7 @@
 class Window_frame;
 
 class Window : public Node<Container>
-             , public Managed
+             , public Managed<unsigned int>
 {
 protected:
     std::string _name;
@@ -16,7 +16,7 @@ protected:
     std::unique_ptr<Window_frame> _frame;
 
 public:
-    Window(Managed_id id) noexcept
+    Window(Index id) noexcept
         : Managed(id)
         , _ws(nullptr)
         , _focused(false)
@@ -40,7 +40,7 @@ public:
 
     inline bool busy() const noexcept
     { return _busy; }
-    
+
     inline void busy(const bool b) noexcept
     { _busy = b; }
 
@@ -50,11 +50,11 @@ public:
     virtual void unfocus() = 0;
 };
 
-class Window_frame : public Managed
+class Window_frame : public Managed<unsigned int>
 {
     Window* _window;
 public:
-    Window_frame(Managed_id id, Window* window) noexcept
+    Window_frame(Index id, Window* window) noexcept
         : Managed(id)
         , _window(window)
     {}

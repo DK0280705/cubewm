@@ -1,5 +1,7 @@
 #pragma once
-#include "command.h"
+#include "binding.h"
+#include "manager.h"
+#include "keybind.h"
 #include <unordered_map>
 #include <xkbcommon/xkbcommon.h>
 
@@ -7,17 +9,16 @@ class Connection;
 
 class Keyboard
 {
+
 protected:
     const Connection& _conn;
+    xkb_context*      _ctx;
+    xkb_keymap*       _keymap;
+    xkb_state*        _state;
 
-    xkb_context* _ctx;
-    xkb_keymap*  _keymap;
-    xkb_state*   _state;
-
-    static std::unordered_map<xkb_keycode_t, Command> _bindings;
+    Manager<Binding, Keybind> _binding_manager;
 
     Keyboard(const Connection& conn);
-
     void _clear_keymap();
 
 public:
@@ -26,6 +27,9 @@ public:
 
     constexpr xkb_keymap* keymap() const noexcept
     { return _keymap; }
+
+    constexpr const Manager<Binding, Keybind>& manager() const noexcept
+    { return _binding_manager; }
 
     virtual void update_keymap() = 0;
     virtual ~Keyboard();

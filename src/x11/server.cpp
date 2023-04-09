@@ -19,6 +19,8 @@ Server::Server(State& state)
     // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
 
+    window::grab_keys(_state.keyboard(), _state.conn().xscreen()->root);
+
     // Register emwh functions
     _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
     _state.connect(State::window_manager_update, ewmh::update_client_list);
@@ -60,6 +62,10 @@ void Server::_main_loop()
 
         // Freezes until signal
         select(xcb_fd + 1, &in_fds, nullptr, nullptr, nullptr);
+        if (xcb_connection_has_error(_state.conn())) {
+            stop();
+            continue;
+        }
 
         while ((ev = xcb_poll_for_event(_state.conn()))) {
             X11::event::handle(_state, { ev });
