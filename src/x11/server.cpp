@@ -37,13 +37,12 @@ Server::Server(State& state)
     });
 
     // Get default workspace
-    auto* workspc = _state.current_workspace();
-    assert_debug(workspc, "Expected default workspace not null");
+    auto& workspace = _state.current_workspace();
 
     // <Manage all existing windows if available.
     X11::window::load_all(_state);
     // Make current workspace last added window focused.
-    auto& window_list = workspc->window_list();
+    auto& window_list = workspace.window_list();
     if (window_list.current())
         window_list.focus(std::prev(window_list.end(), 1));
 }

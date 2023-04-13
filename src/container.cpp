@@ -8,7 +8,7 @@ static inline int _fraction(std::size_t size, float length)
 
 }
 
-void Horizontal_container::update_rect()
+void Horizontal_container::update_rect() noexcept
 {
     const auto& rect = this->rect();
     logger::debug("Hcon rect update -> x: {}, y: {}, width: {}, height: {}",
@@ -25,7 +25,7 @@ void Horizontal_container::update_rect()
     }
 }
 
-void Vertical_container::update_rect()
+void Vertical_container::update_rect() noexcept
 {
     const auto& rect = this->rect();
     logger::debug("Vcon rect update -> x: {}, y: {}, width: {}, height: {}",
@@ -42,7 +42,7 @@ void Vertical_container::update_rect()
     }
 }
 
-void Tabbed_container::update_rect()
+void Tabbed_container::update_rect() noexcept
 {
     const auto& rect = this->rect();
     logger::debug("Tcon rect update -> x: {}, y: {}, width: {}, height: {}",

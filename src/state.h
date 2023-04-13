@@ -74,7 +74,7 @@ public:
         _wor_mgr.connect(0, [&](const auto&) { this->notify(State::workspace_manager_update); });
 
         // Add current workspace to current monitor, maintaining tree.
-        _current_monitor->add(_current_workspace);
+        _current_monitor->add(*_current_workspace);
         // Set rect for basic functionality.
         _current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
     }
@@ -133,11 +133,11 @@ public:
         notify(observable::current_monitor_update);
     }
 
-    inline Workspace* current_workspace() const
-    { return _current_workspace; }
+    inline Workspace& current_workspace() const
+    { return *_current_workspace; }
 
-    inline Monitor* current_monitor() const
-    { return _current_monitor; }
+    inline Monitor& current_monitor() const
+    { return *_current_monitor; }
 
     static inline Timestamp& timestamp()
     { return _timestamp; }

@@ -2,6 +2,7 @@
 #include <cassert>
 #include <concepts>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
@@ -31,8 +32,12 @@
     inline typename decltype(container)::const_iterator cend() const noexcept \
     { return container.cend(); }
 
-
 #define assert_debug(expr, msg) assert(expr && msg)
+
+namespace std {
+template <typename T>
+using optref = std::optional<std::reference_wrapper<T>>;
+}
 
 inline void assert_runtime(const bool expr, const std::string& msg)
 {

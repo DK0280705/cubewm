@@ -20,7 +20,7 @@ void update_number_of_desktops(const State& state)
 void update_current_desktop(const State& state)
 {
     logger::debug("EWMH -> updated _NET_CURRENT_DESKTOP");
-    const uint32_t prop[] = { state.current_workspace()->index() };
+    const uint32_t prop[] = { state.current_workspace().index() };
     window::change_property(window::prop::replace, X11::_root_window_id(),
                             atom::_NET_CURRENT_DESKTOP, XCB_ATOM_CARDINAL,
                             std::span{prop});

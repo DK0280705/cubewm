@@ -1,42 +1,33 @@
 #pragma once
 #include "container.h"
+#include "frame.h"
 #include "managed.h"
+#include <concepts>
 
 class Window_frame;
+class Workspace;
 
 class Window : public Node<Container>
+             , public Focusable
              , public Managed<unsigned int>
 {
 protected:
-    std::string _name;
-    Workspace*  _ws;
-    bool        _focused;
-    bool        _busy;
-
-    std::unique_ptr<Window_frame> _frame;
+    bool          _busy;
+    std::string   _name;
+    Window_frame* _frame;
 
 public:
-    Window(Index id) noexcept
+    Window(Index id, Window_frame* frame)
         : Managed(id)
-        , _ws(nullptr)
-        , _focused(false)
         , _busy(false)
+        , _frame(frame)
     {}
 
     inline std::string_view name() const noexcept
     { return _name; }
 
-    inline Workspace* workspace() const noexcept
-    { return _ws; }
-
-    inline void workspace(Workspace* ws) noexcept
-    { _ws = ws; }
-
-    inline Window_frame* frame() const noexcept
-    { return _frame.get(); }
-
-    inline bool focused() const noexcept
-    { return _focused; }
+    inline Window_frame& frame() const noexcept
+    { return *_frame; }
 
     inline bool busy() const noexcept
     { return _busy; }
@@ -44,25 +35,10 @@ public:
     inline void busy(const bool b) noexcept
     { _busy = b; }
 
-
-public:
-    virtual void focus() = 0;
-    virtual void unfocus() = 0;
+    ~Window() noexcept
+    { delete _frame; }
 };
 
-class Window_frame : public Managed<unsigned int>
-{
-    Window* _window;
-public:
-    Window_frame(Index id, Window* window) noexcept
-        : Managed(id)
-        , _window(window)
-    {}
-
-    inline Window* window() const noexcept
-    { return _window; }
-};
-
-void place_to(Workspace* ws, Window* window, bool create_new = false);
-void purge(Window* window);
-Window* find_window_by_position(Workspace* ws, const Point2D& pos);
+void place_to(Workspace& ws, Window& window, bool create_new = false);
+void purge(Window& window);
+std::optref<Window> find_window_by_position(Workspace* ws, const Point2D& pos);

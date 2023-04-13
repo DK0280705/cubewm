@@ -134,7 +134,7 @@ static bool _is_alt_focus(const xcb_window_t window_id)
 } // namespace window
 
 Window::Window(Index id)
-    : ::Window(id)
+    : ::Window(id, new X11::Window_frame(*this))
 {
     // Get window events
     const uint32_t mask[] = { constant::CHILD_EVENT_MASK };
@@ -149,14 +149,11 @@ Window::Window(Index id)
                && window::has_proto(id, X11::atom::WM_TAKE_FOCUS);
     logger::debug("Window: {:#x} -> alt focus: {}", index(), _alt_focus);
 
-    // Create frame
-    _frame = std::make_unique<X11::Window_frame>(this);
-
     // Flush the toilet
     xcb_flush(X11::_conn());
 }
 
-void Window::update_rect()
+void Window::update_rect() noexcept
 {
     const auto& rect = this->rect();
     static constexpr uint16_t mask = XCB_CONFIG_WINDOW_X
@@ -172,6 +169,7 @@ void Window::update_rect()
     };
 
     xcb_configure_window(X11::_conn(), index(), mask, values);
+    xcb_configure_window(X11::_conn(), _frame->index(), mask, values);
 }
 
 void Window::focus()
@@ -209,7 +207,7 @@ void Window::unfocus()
     _focused = false;
 }
 
-Window_frame::Window_frame(Window* window)
+Window_frame::Window_frame(Window& window)
     : ::Window_frame(xcb_generate_id(X11::_conn()), window)
 {
     const uint32_t mask = XCB_CW_BACK_PIXEL
@@ -223,15 +221,15 @@ Window_frame::Window_frame(Window* window)
         constant::FRAME_EVENT_MASK
     };
     xcb_create_window(X11::_conn(), XCB_COPY_FROM_PARENT, index(), X11::_root_window_id(),
-                      window->rect().pos.x, window->rect().pos.y, window->rect().size.x, window->rect().size.y,
+                      window.rect().pos.x, window.rect().pos.y, window.rect().size.x, window.rect().size.y,
                       // Draw border later
                       0, XCB_WINDOW_CLASS_INPUT_OUTPUT, XCB_COPY_FROM_PARENT,
                       mask, values);
     window::change_property(window::prop::replace, index(), XCB_ATOM_WM_CLASS, XCB_ATOM_STRING, std::span{constant::FRAME_CLASS_NAME});
     logger::debug("Window_frame -> created X11 frame {:#x}", index());
 
-    window->busy(true);
-    xcb_reparent_window(X11::_conn(), window->index(), index(), 0, 0);
+    window.busy(true);
+    xcb_reparent_window(X11::_conn(), window.index(), index(), 0, 0);
 
     xcb_map_window(X11::_conn(), index());
 }
@@ -288,8 +286,8 @@ void load_all(State& state)
 
         window::grab_keys(state.keyboard(), window->index());
 
-        place_to(ws, window);
-        ws->window_list().add(window);
+        place_to(*ws, *window);
+        ws->window_list().add(*window);
         xcb_map_window(X11::_conn(), window->index());
     }
     xcb_ungrab_server(X11::_conn());
@@ -321,7 +319,7 @@ Workspace* load_workspace(State& state, X11::Window* window)
 
 void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id)
 {
-    for (const auto& [keybind, _] : keyboard.manager()) {
+    for (const auto& [keybind, _] : keyboard.bindings()) {
         uint8_t keycode = keysym_to_keycode(keybind.keysym);
         logger::debug("Grab keys -> keysym: {}, keycode: {}", keybind.keysym, keycode);
         xcb_grab_key(X11::_conn(), 0, window_id, keybind.modifiers, keycode,

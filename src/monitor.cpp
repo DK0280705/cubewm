@@ -1,7 +1,7 @@
 #include "monitor.h"
 #include "logger.h"
 
-void Monitor::update_rect()
+void Monitor::update_rect() noexcept
 {
     const auto& rect = this->rect();
     logger::debug("Monitor rect update -> x: {}, y: {}, width: {}, height: {}",

@@ -22,13 +22,10 @@ protected:
     void _clear_keymap();
 
 public:
-    constexpr xkb_state* state() const noexcept
+    inline xkb_state* state() const noexcept
     { return _state; }
 
-    constexpr xkb_keymap* keymap() const noexcept
-    { return _keymap; }
-
-    constexpr const Manager<Binding, Keybind>& manager() const noexcept
+    constexpr const Manager<Binding, Keybind>& bindings() const noexcept
     { return _binding_manager; }
 
     virtual void update_keymap() = 0;

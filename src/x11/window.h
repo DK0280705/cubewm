@@ -1,5 +1,6 @@
 #pragma once
 #include "x11.h"
+#include "../frame.h"
 #include "../window.h"
 #include "../helper.h"
 #include <span>
@@ -40,7 +41,7 @@ public:
 public:
     Window(Index id);
 
-    void update_rect() override;
+    void update_rect() noexcept override;
 
     void focus() override;
     void unfocus() override;
@@ -49,7 +50,10 @@ public:
 class Window_frame : public ::Window_frame
 {
 public:
-    Window_frame(Window* window);
+    Window_frame(Window& window);
+
+    void focus() override {};
+    void unfocus() override {};
 };
 
 namespace window {

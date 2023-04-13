@@ -6,7 +6,7 @@
 #include "extension.h"
 #include "window.h"
 #include "event.h"
-#include <algorithm>
+#include <ranges>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon.h>
 #define explicit _explicit
@@ -107,15 +107,15 @@ void _on_unmap_notify(State& state, const xcb_unmap_notify_event_t& event)
         logger::debug("Unmap notify -> ignoring unmanaged window: {:#x}", event.window);
         return;
     }
-    ::Window* win = win_mgr.at(event.window);
-    if (win->busy()) {
-        win->busy(false);
+    ::Window* window = win_mgr.at(event.window);
+    if (window->busy()) {
+        window->busy(false);
         return;
     }
-    auto& window_list = win->workspace()->window_list();
-    window_list.remove(win);
-    purge(win);
-    xcb_change_save_set(state.conn(), XCB_SET_MODE_DELETE, win->index());
+    auto& window_list = window->root<Workspace>().window_list();
+    window_list.remove(*window);
+    purge(*window);
+    xcb_change_save_set(state.conn(), XCB_SET_MODE_DELETE, window->index());
 
     win_mgr.unmanage(event.window);
 }
@@ -132,15 +132,15 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
     if (!window::manageable(event.window, false))
         return;
 
-    ::Window* win = win_mgr.manage<X11::Window>(event.window);
-    window::grab_keys(state.keyboard(), win->index());
-    place_to(state.current_workspace(), win);
-    xcb_map_window(state.conn(), win->index());
-    xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, win->index());
+    ::Window* window = win_mgr.manage<X11::Window>(event.window);
+    window::grab_keys(state.keyboard(), window->index());
+    place_to(state.current_workspace(), *window);
+    xcb_map_window(state.conn(), window->index());
+    xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, window->index());
 
     // Set focus
-    auto& window_list = win->workspace()->window_list();
-    window_list.add(win);
+    auto& window_list = window->root<Workspace>().window_list();
+    window_list.add(*window);
     window_list.focus(std::prev(window_list.end(), 1));
 }
 
@@ -154,8 +154,8 @@ void _on_enter_notify(State& state, const xcb_enter_notify_event_t& event)
     if (state.manager<::Window>().is_managed(event.event)) {
         auto* window = state.manager<::Window>().at(event.event);
         logger::debug("Enter notify -> window is managed");
-        auto window_list = window->workspace()->window_list();
-        window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+        auto window_list = window->root<Workspace>().window_list();
+        window_list.focus(std::ranges::find(window_list, window));
     }
 }
 
@@ -164,10 +164,10 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
     auto& win_mgr = state.manager<::Window>();
     // Update focus if root window received focus in
     if (event.event == state.conn().xscreen()->root) {
-        auto* workspc = state.current_workspace();
+        auto& workspace = state.current_workspace();
         logger::debug("Focus in -> refocusing focused window");
-        if (auto* f = workspc->window_list().current())
-            f->focus();
+        if (const auto& f = workspace.window_list().current())
+            f->get().focus();
     }
 
     if (!win_mgr.is_managed(event.event)) {
@@ -185,13 +185,13 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
         return;
     }
 
-    ::Window* win = win_mgr.at(event.event);
-    auto& window_list = win->workspace()->window_list();
-    if (win == window_list.current()) {
+    ::Window* window = win_mgr.at(event.event);
+    auto& window_list = window->root<Workspace>().window_list();
+    if (!window_list.current().has_value() or window == &window_list.current()->get()) {
         logger::debug("Focus in -> ignoring current focused");
         return;
     }
-    window_list.focus(std::find(window_list.begin(), window_list.end(), win));
+    window_list.focus(std::ranges::find(window_list, window));
 }
 
 // Only log for debug
@@ -262,9 +262,9 @@ void _on_button_press(State& state, const xcb_button_press_event_t& event)
         if (state.manager<::Window>().is_managed(event.child)) {
             logger::debug("Button press -> found child window: {:#x}", event.child);
             auto* window = state.manager<::Window>().at(event.child);
-            auto& window_list = window->workspace()->window_list();
-            if (window_list.current() != window)
-                window_list.focus(std::find(window_list.begin(), window_list.end(), window));
+            auto& window_list = window->root<Workspace>().window_list();
+            if (window_list.current().has_value() and &window_list.current()->get() != window)
+                window_list.focus(std::ranges::find(window_list, window));
         }
     }
     xcb_allow_events(state.conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
@@ -285,9 +285,9 @@ void _on_key_press(State& state, const xcb_key_press_event_t& event)
     logger::debug("Key press -> key: {}", keysym_name);
 
     Keybind keybind = {keysym, modifiers};
-    if (state.keyboard().manager().is_managed(keybind)) {
+    if (state.keyboard().bindings().is_managed(keybind)) {
         logger::debug("Key press -> found binding for keybind");
-        (*state.keyboard().manager().at(keybind))(state);
+        (*state.keyboard().bindings().at(keybind))(state);
     }
 }
 

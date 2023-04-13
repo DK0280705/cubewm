@@ -9,43 +9,24 @@
 #include "geometry.h"
 #include <vector>
 
-class Workspace;
-
 class Container
 {
     Vector2D _rect;
 
 public:
-    inline const Vector2D& rect() const
+    inline const Vector2D& rect() const noexcept
     { return _rect; }
 
-    inline void rect(const Vector2D& rect)
-    {
-        _rect = rect;
-        update_rect();
-    }
+    inline void rect(const Vector2D& rect) noexcept
+    { _rect = rect; update_rect(); }
 
-public:
-    virtual void update_rect() = 0;
-
-    virtual ~Container() {}
+    virtual void update_rect() noexcept = 0;
 };
 
 class Layout_container : public Node<Container>
 {
-    Workspace* _ws;
-
 public:
-    inline Workspace* workspace() const
-    { return _ws; }
-
-    inline void workspace(Workspace* ws)
-    { _ws = ws; }
-
-public:
-    Layout_container(Workspace* ws) noexcept
-        : _ws(ws)
-    {}
+    Layout_container() noexcept = default;
 
     virtual ~Layout_container()
     { for (const auto& c : *this) delete c; };
@@ -54,30 +35,24 @@ public:
 class Horizontal_container : public Layout_container
 {
 public:
-    Horizontal_container(Workspace* ws)
-        : Layout_container(ws)
-    {}
+    Horizontal_container() noexcept = default;
 
-    void update_rect() override;
+    void update_rect() noexcept override;
 };
 
 class Vertical_container : public Layout_container
 {
 public:
-    Vertical_container(Workspace* ws)
-        : Layout_container(ws)
-    {}
+    Vertical_container() noexcept = default;
 
-    void update_rect() override;
+    void update_rect() noexcept override;
 };
 
 class Tabbed_container : public Layout_container
 {
 public:
-    Tabbed_container(Workspace* ws)
-        : Layout_container(ws)
-    {}
+    Tabbed_container() noexcept = default;
 
-    void update_rect() override;
+    void update_rect() noexcept override;
 };
 
