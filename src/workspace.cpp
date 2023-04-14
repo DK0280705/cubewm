@@ -28,11 +28,12 @@ void Window_list::remove(const_iterator it) noexcept
     logger::debug("Window list -> removing window: {:#x}", it->index());
 
     if (it->focused()) it->unfocus();
-    auto& last = current()->get();
-    _list.erase(it);
+    auto& first = *it;
+    auto& last  = current()->get();
     _pool.erase(&(*it));
+    _list.erase(it);
 
-    if (*it == last and current().has_value()) {
+    if (first == last and current().has_value()) {
         logger::debug("Window list -> refocusing last window");
         focus(std::prev(_list.cend(), 1));
     }
