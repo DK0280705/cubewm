@@ -8,30 +8,31 @@ void Window_list::add(Window& window) noexcept
     assert_debug(!contains(window), "You can't add existing window to window list");
     logger::debug("Window list -> adding window: {:#x}", window.index());
     _list.push_back(&window);
-    _pos.insert(&window);
+    _pool.insert(&window);
 }
 
-void Window_list::focus(Const_iterator it) noexcept
+void Window_list::focus(const_iterator it) noexcept
 {
-    if (!current()) return;
-    logger::debug("Window list -> focusing window: {:#x}", (*it)->index());
+    assert_debug(current(), "Attempted to focus foreign window");
+    logger::debug("Window list -> focusing window: {:#x}", (it->index()));
+
     current()->get().unfocus();
-    auto* window = *it;
+    auto& window = *it;
     _list.splice(_list.end(), _list, it);
-    window->focus();
+    window.focus();
 }
 
-void Window_list::remove(Window& window) noexcept
+void Window_list::remove(const_iterator it) noexcept
 {
-    if (window.focused()) window.unfocus();
-
-    logger::debug("Window list -> removing window: {:#x}", window.index());
     assert_debug(current(), "Attempted to remove foreign window");
-    auto& last = current()->get();
-    _list.remove(&window);
-    _pos.erase(&window);
+    logger::debug("Window list -> removing window: {:#x}", it->index());
 
-    if (&window == &last and current().has_value()) {
+    if (it->focused()) it->unfocus();
+    auto& last = current()->get();
+    _list.erase(it);
+    _pool.erase(&(*it));
+
+    if (*it == last and current().has_value()) {
         logger::debug("Window list -> refocusing last window");
         focus(std::prev(_list.cend(), 1));
     }

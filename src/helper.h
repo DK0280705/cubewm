@@ -145,24 +145,28 @@ public:
     using reference         = typename std::remove_pointer<typename std::iterator_traits<Iterator>::value_type>::type&;
 
     pointer_iterator_wrapper() noexcept {};
-    explicit pointer_iterator_wrapper(const Iterator& iter) : _iter(iter) {}
+    pointer_iterator_wrapper(const Iterator& iter) : _iter(iter) {}
+    template <std::convertible_to<Iterator> It>
+    pointer_iterator_wrapper(const pointer_iterator_wrapper<It>& iter) : _iter(iter) {}
 
-    reference operator*()
+    operator Iterator() const noexcept
+    { return _iter; }
+
+    reference operator*() const noexcept
     { return *(*_iter); }
-    pointer operator->()
+    pointer operator->() const noexcept
     { return (*_iter); }
-    pointer_iterator_wrapper& operator++()
+    pointer_iterator_wrapper& operator++() noexcept
     { ++_iter; return *this; }
-    pointer_iterator_wrapper operator++(int)
+    pointer_iterator_wrapper operator++(int) noexcept
     { return pointer_iterator_wrapper(_iter++); }
-    pointer_iterator_wrapper& operator--()
+    pointer_iterator_wrapper& operator--() noexcept
     { --_iter; return *this; }
-    pointer_iterator_wrapper operator--(int)
+    pointer_iterator_wrapper operator--(int) noexcept
     { return pointer_iterator_wrapper(_iter--); }
     friend bool operator==(const pointer_iterator_wrapper& rhs, const pointer_iterator_wrapper& lhs) noexcept
     { return rhs._iter == lhs._iter; }
 };
-
 
 namespace memory {
 

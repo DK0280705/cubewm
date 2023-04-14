@@ -272,27 +272,6 @@ static auto _fetch_all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, s
         std::span{window_ids, (uint64_t)xcb_query_tree_children_length(query.get())});
 }
 
-void load_all(State& state)
-{
-    Manager<::Window>& win_mgr = state.manager<::Window>();
-    auto [_, window_ids] = window::_fetch_all();
-    xcb_grab_server(X11::_conn());
-    for (const auto& w_id : window_ids) {
-        if (win_mgr.is_managed(w_id)) continue;
-        if (!manageable(w_id, true)) continue;
-        ::Window* window = win_mgr.manage<X11::Window>(w_id);
-
-        ::Workspace* ws = load_workspace(state, static_cast<X11::Window*>(window));
-
-        window::grab_keys(state.keyboard(), window->index());
-
-        place_to(*ws, *window);
-        ws->window_list().add(*window);
-        xcb_map_window(X11::_conn(), window->index());
-    }
-    xcb_ungrab_server(X11::_conn());
-}
-
 static uint32_t _fetch_workspace(const uint32_t window_id)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
@@ -308,13 +287,32 @@ static uint32_t _fetch_workspace(const uint32_t window_id)
     return reinterpret_cast<uint32_t*>(xcb_get_property_value(prop.get()))[0];
 }
 
-
-Workspace* load_workspace(State& state, X11::Window* window)
+static Workspace& _load_workspace(State& state, ::Window& window)
 {
-    const auto ws_id = _fetch_workspace(window->index());
+    const auto ws_id = _fetch_workspace(window.index());
     auto& wor_mgr    = state.manager<Workspace>();
+    return wor_mgr.get(ws_id).value_or(wor_mgr.manage(ws_id));
+}
 
-    return (wor_mgr.is_managed(ws_id)) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
+void load_all(State& state)
+{
+    Manager<::Window>& win_mgr = state.manager<::Window>();
+    auto [_, window_ids] = window::_fetch_all();
+    xcb_grab_server(X11::_conn());
+    for (const auto& w_id : window_ids) {
+        if (win_mgr.contains(w_id)) continue;
+        if (!manageable(w_id, true)) continue;
+        ::Window& window = win_mgr.manage<X11::Window>(w_id);
+
+        ::Workspace& ws = _load_workspace(state, window);
+
+        window::grab_keys(state.keyboard(), window.index());
+
+        place_to(ws, window);
+        ws.window_list().add(window);
+        xcb_map_window(X11::_conn(), window.index());
+    }
+    xcb_ungrab_server(X11::_conn());
 }
 
 void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id)

@@ -74,7 +74,6 @@ static consteval int prop_size()
 bool manageable(const uint32_t window_id, const bool must_be_mapped = false);
 
 void load_all(State& state);
-Workspace* load_workspace(State& state, X11::Window* window);
 
 void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id);
 

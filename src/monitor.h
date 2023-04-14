@@ -25,5 +25,5 @@ public:
     void update_rect() noexcept override;
 
     virtual ~Monitor()
-    { for (const auto& ws : *this) delete &ws; }
+    { for (const auto& ws : _workspaces) delete ws; }
 };

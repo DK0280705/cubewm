@@ -57,7 +57,7 @@ void purge(Window& window)
 std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos)
 {
     auto it = std::ranges::find_if(ws.window_list(), [&](const auto& win){
-        return Vector2D::contains(win->rect(), pos);
+        return Vector2D::contains(win.rect(), pos);
     });
-    return (it != ws.window_list().end()) ? std::optref<Window>(*(*it)) : std::nullopt;
+    return (it != ws.window_list().end()) ? std::optref<Window>(*it) : std::nullopt;
 }

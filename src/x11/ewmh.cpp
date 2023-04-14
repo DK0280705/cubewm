@@ -32,7 +32,7 @@ void update_desktop_names(const State& state)
     std::string names;
     std::size_t names_length = 0;
     for (const auto&[id, ws] : state.manager<::Workspace>()) {
-        names += std::string(ws->name()) + "\0";
+        names += std::string(ws->name()) + '\0';
         names_length += ws->name().size() + 1;
     }
     window::change_property(window::prop::replace, X11::_root_window_id(),

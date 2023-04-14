@@ -26,8 +26,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 add_compile_options(
     -Wall
     -Wextra
-    -Wconversion
-    -Wsign-conversion
     -fPIC
     -rdynamic
     -pthread

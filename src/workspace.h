@@ -11,25 +11,22 @@ class Window;
 class Window_list
 {
     std::list<Window*>          _list;
-    std::unordered_set<Window*> _pos;
-
-public:
-    using Iterator       = typename decltype(_list)::iterator;
-    using Const_iterator = typename decltype(_list)::const_iterator;
+    std::unordered_set<Window*> _pool;
 
 public:
     inline std::optref<Window> current() const noexcept
     { return _list.empty() ? std::nullopt : std::optref<Window>(*_list.back()); }
 
+    // I prefer O(2n) capacity over O(n) performance
     inline bool contains(Window& window) const noexcept
-    { return _pos.contains(&window); }
+    { return _pool.contains(&window); }
 
-    DECLARE_CONTAINER_WRAPPER(_list)
+    DEFINE_POINTER_ITERATOR_WRAPPER(_list);
 
 public:
     void add(Window& window) noexcept;
-    void focus(Const_iterator it) noexcept;
-    void remove(Window& window) noexcept;
+    void focus(const_iterator it) noexcept;
+    void remove(const_iterator it) noexcept;
 };
 
 class Workspace : public Root<Container>

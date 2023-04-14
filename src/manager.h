@@ -18,11 +18,8 @@ class Manager : public Init_once<Manager<Type, Key>>
 public:
     using Managed_container  = std::unordered_map<Key, Type*>;
 
-    using Iterator       = typename std::unordered_map<Key, Type*>::iterator;
-    using Const_iterator = typename std::unordered_map<Key, Type*>::const_iterator;
-
 private:
-    Managed_container  _managed;
+    Managed_container _managed;
 
 public:
     Manager() noexcept = default;
@@ -33,10 +30,13 @@ public:
     auto operator=(Manager&&)      = delete;
 
 public:
-    inline Type* at(const Key& key) const
-    { return _managed.at(key); }
+    inline Type& at(const Key& key) const
+    { return *_managed.at(key); }
 
-    inline bool is_managed(const Key& key) const
+    inline std::optref<Type> get(const Key& key) const noexcept
+    { return _managed.contains(key) ? std::optref<Type>(*_managed.at(key)) : std::nullopt; }
+
+    inline bool contains(const Key& key) const noexcept
     { return _managed.contains(key); }
 
     DECLARE_CONTAINER_WRAPPER(_managed)
@@ -44,13 +44,13 @@ public:
 public:
     template <std::derived_from<Type> Derived = Type, typename...Args>
     requires (std::constructible_from<Derived, Key, Args...>)
-    Type* manage(const Key& key, Args&&... args)
+    Derived& manage(const Key& key, Args&&... args)
     {
         assert_debug(!_managed.contains(key), "Managing already managed item");
-        Type* man = new Derived(key, std::forward<Args>(args)...);
+        Derived* man = new Derived(key, std::forward<Args>(args)...);
         _managed.emplace(key, man);
         this->notify(0);
-        return man;
+        return *man;
     }
 
     void unmanage(const Key& key)
@@ -61,7 +61,7 @@ public:
         this->notify(0);
     }
 
-    void clear()
+    void clear() noexcept
     {
         for (const auto& [_, m] : _managed)
             delete m;

@@ -64,9 +64,9 @@ public:
         , _mon_mgr(Manager<Monitor>::init())
         , _wor_mgr(Manager<Workspace>::init())
         // Set default workspace, ensure it never null.
-        , _current_workspace(_wor_mgr.manage(0))
+        , _current_workspace(&_wor_mgr.manage(0))
         // Set default monitor, at worst, atleast it handles one monitor.
-        , _current_monitor(_mon_mgr.manage(0))
+        , _current_monitor(&_mon_mgr.manage(0))
     {
         // Connect signals to managers.
         _win_mgr.connect(0, [&](const auto&) { this->notify(State::window_manager_update); });

@@ -31,7 +31,7 @@ Server::Server(State& state)
     auto& mon_mgr = _state.manager<::Monitor>();
     // Default, will add randr soon
     auto* xscreen = _state.conn().xscreen();
-    mon_mgr.at(0)->rect({
+    mon_mgr.at(0).rect({
         { 0, 0 },
         { xscreen->width_in_pixels, xscreen->height_in_pixels }
     });
