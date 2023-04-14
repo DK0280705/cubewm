@@ -9,7 +9,7 @@ class Monitor : public Container
     std::vector<Workspace*> _workspaces;
 
 public:
-    DECLARE_CONTAINER_WRAPPER(_workspaces);
+    DEFINE_POINTER_ITERATOR_WRAPPER(_workspaces);
 
     inline void add(Workspace& ws)
     { _workspaces.push_back(&ws); }
@@ -25,5 +25,5 @@ public:
     void update_rect() noexcept override;
 
     virtual ~Monitor()
-    { for (const auto& ws : *this) delete ws; }
+    { for (const auto& ws : *this) delete &ws; }
 };

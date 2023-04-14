@@ -5,10 +5,10 @@
 
 static void _assign_default_bindings(Manager<Binding, Keybind>& manager)
 {
-    manager.manage<Move_focus>({XKB_KEY_Left,  mod_mask::mod4}, direction::left);
-    manager.manage<Move_focus>({XKB_KEY_Up,    mod_mask::mod4}, direction::up);
-    manager.manage<Move_focus>({XKB_KEY_Right, mod_mask::mod4}, direction::right);
-    manager.manage<Move_focus>({XKB_KEY_Down,  mod_mask::mod4}, direction::down);
+    manager.manage<Move_focus>({XKB_KEY_Left,  mod_mask::mod4}, Direction::left);
+    manager.manage<Move_focus>({XKB_KEY_Up,    mod_mask::mod4}, Direction::up);
+    manager.manage<Move_focus>({XKB_KEY_Right, mod_mask::mod4}, Direction::right);
+    manager.manage<Move_focus>({XKB_KEY_Down,  mod_mask::mod4}, Direction::down);
 }
 
 Keyboard::Keyboard(const Connection& conn)

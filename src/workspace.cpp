@@ -42,6 +42,6 @@ void Workspace::update_rect() noexcept
     const auto& rect = this->rect();
     logger::debug("Workspace rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
-    for (const auto& lcon : *this)
-        lcon->rect(rect);
+    for (auto& lcon : *this)
+        lcon.rect(rect);
 }

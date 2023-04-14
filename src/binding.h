@@ -18,9 +18,9 @@ public:
 
 class Move_focus : public Binding
 {
-    direction _dir;
+    Direction _dir;
 public:
-    Move_focus(const Index& k, direction dir) noexcept
+    Move_focus(const Index& k, Direction dir) noexcept
         : Binding(k)
         , _dir(dir)
     {}

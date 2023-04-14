@@ -1,18 +1,11 @@
 #pragma once
 #include "helper.h"
+#include <bits/iterator_concepts.h>
 #include <concepts>
+#include <cstddef>
 #include <functional>
 #include <list>
 #include <ranges>
-#include <stdexcept>
-
-class Node_exception : public std::runtime_error
-{
-public:
-    Node_exception(const char* message) noexcept
-        : std::runtime_error(message)
-    {}
-};
 
 template <typename T>
 class Node;
@@ -26,6 +19,14 @@ public:
 };
 
 template <typename T>
+class Leaf : public Node<T>
+{
+public:
+    Leaf() : Node<T>()
+    { this->_is_leaf = true; }
+};
+
+template <typename T>
 class Node : public T
 {
     Node<T>*            _parent;
@@ -34,13 +35,15 @@ class Node : public T
 protected:
     // object modifiers
     bool _is_root;
-
+    bool _is_leaf;
 public:
-    using Iterator       = typename std::list<Node<T>*>::iterator;
-    using Const_iterator = typename std::list<Node<T>*>::const_iterator;
+    DEFINE_POINTER_ITERATOR_WRAPPER(_children)
 
-public:
-    DECLARE_CONTAINER_WRAPPER(_children)
+    inline bool empty() const noexcept
+    { return _children.empty(); }
+
+    inline size_t size() const noexcept
+    { return _children.size(); }
 
     inline std::optref<Node<T>> front() const noexcept
     { return _children.front() ? std::optref<Node<T>>(*_children.front()) : std::nullopt; }
@@ -59,8 +62,16 @@ public:
     inline R& root()
     { return static_cast<R&>(get_root(*this)); }
 
+    template <std::derived_from<Leaf<T>> L = Leaf<T>>
+    inline const L& leaf() const
+    { assert(!_is_leaf); return static_cast<const L&>(*this); }
+
+    template <std::derived_from<Leaf<T>> L = Leaf<T>>
+    inline L& leaf()
+    { assert(!_is_leaf); return static_cast<L&>(*this); }
+
     inline bool is_leaf() const noexcept
-    { return empty(); }
+    { return _children.empty(); }
 
     inline bool is_root() const noexcept
     { return _is_root; }
@@ -70,6 +81,7 @@ public:
 
     void add(Node<T>& node)
     {
+        assert(!_is_leaf);
         assert(!node._is_root);
         node._parent = this;
         _children.push_back(&node);
@@ -77,20 +89,23 @@ public:
 
     void remove(Node<T>& node)
     {
+        assert(!_is_leaf);
         assert(!node._is_root);
         node._parent = nullptr;
         _children.erase(std::ranges::find(_children, &node));
     }
 
-    void insert(Const_iterator position, Node<T>& node)
+    void insert(const_iterator position, Node<T>& node)
     {
+        assert(!_is_leaf);
         assert(!node._is_root);
         node._parent = this;
         _children.insert(position, &node);
     }
 
-    void shift(Const_iterator position, int shift_pos)
+    void shift(const_iterator position, int shift_pos)
     {
+        assert(!_is_leaf);
         assert(shift_pos);
         auto it_pos = (shift_pos > 0) ? std::ranges::next(position, 1 + shift_pos)
                                       : std::ranges::prev(position, shift_pos);
@@ -105,7 +120,7 @@ inline const Node<T>& get_root(const Node<T>& node)
 {
     const Node<T>* n = &node;
     while (n->parent()) n = &n->parent()->get();
-    if (!n->is_root()) throw Node_exception("Node is orphaned");
+    assert(n->is_root());
     return *n;
 }
 
@@ -114,14 +129,14 @@ inline Node<T>& get_root(Node<T>& node)
 {
     Node<T>* n = &node;
     while (n->parent()) n = &n->parent()->get();
-    if (!n->is_root()) throw Node_exception("Node is orphaned");
+    assert(n->is_root());
     return *n;
 }
 
 template <typename T>
 inline void transfer(Node<T>& from, Node<T>& to)
 {
-    if (!from.parent()) throw Node_exception("Node is orphaned");
+    assert(from.parent());
     from.parent()->get().remove(from);
     to.add(from);
 }

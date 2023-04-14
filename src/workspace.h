@@ -55,6 +55,6 @@ public:
     void update_rect() noexcept override;
 
     ~Workspace() noexcept override
-    { for (const auto& c : *this) delete c; }
+    { for (const auto& c : *this) delete &c; }
 };
 

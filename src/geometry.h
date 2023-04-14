@@ -19,7 +19,7 @@ struct Vector2D
     }
 };
 
-enum class direction : unsigned char {
+enum class Direction : unsigned char {
     left,
     up,
     right,

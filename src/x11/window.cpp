@@ -266,18 +266,18 @@ static auto _fetch_all() -> std::pair<memory::c_owner<xcb_query_tree_reply_t>, s
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::_conn(),
             xcb_query_tree(X11::_conn(), X11::_conn().xscreen()->root), 0));
-    xcb_window_t* windows = xcb_query_tree_children(query.get());
+    xcb_window_t* window_ids = xcb_query_tree_children(query.get());
     return std::pair(
         std::move(query),
-        std::span{windows, (uint64_t)xcb_query_tree_children_length(query.get())});
+        std::span{window_ids, (uint64_t)xcb_query_tree_children_length(query.get())});
 }
 
 void load_all(State& state)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
-    auto [_, windows] = window::_fetch_all();
+    auto [_, window_ids] = window::_fetch_all();
     xcb_grab_server(X11::_conn());
-    for (const auto& w_id : windows) {
+    for (const auto& w_id : window_ids) {
         if (win_mgr.is_managed(w_id)) continue;
         if (!manageable(w_id, true)) continue;
         ::Window* window = win_mgr.manage<X11::Window>(w_id);

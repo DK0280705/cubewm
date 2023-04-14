@@ -7,7 +7,7 @@
 class Window_frame;
 class Workspace;
 
-class Window : public Node<Container>
+class Window : public Leaf<Container>
              , public Focusable
              , public Managed<unsigned int>
 {
@@ -41,4 +41,4 @@ public:
 
 void place_to(Workspace& ws, Window& window, bool create_new = false);
 void purge(Window& window);
-std::optref<Window> find_window_by_position(Workspace* ws, const Point2D& pos);
+std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos);

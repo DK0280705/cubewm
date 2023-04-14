@@ -1,6 +1,8 @@
 #pragma once
+#include <bits/iterator_concepts.h>
 #include <cassert>
 #include <concepts>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -31,6 +33,23 @@
     { return container.cbegin(); } \
     inline typename decltype(container)::const_iterator cend() const noexcept \
     { return container.cend(); }
+
+#define DEFINE_POINTER_ITERATOR_WRAPPER(container) \
+public: \
+    using iterator       = pointer_iterator_wrapper<typename decltype(container)::iterator>; \
+    using const_iterator = pointer_iterator_wrapper<typename decltype(container)::const_iterator>; \
+    inline iterator begin() noexcept \
+    { return iterator(container.begin()); } \
+    inline iterator end() noexcept \
+    { return iterator(container.end()); } \
+    inline const_iterator begin() const noexcept \
+    { return const_iterator(container.cbegin()); } \
+    inline const_iterator end() const noexcept \
+    { return const_iterator(container.cend()); } \
+    inline const_iterator cbegin() const noexcept \
+    { return const_iterator(container.cbegin()); } \
+    inline const_iterator cend() const noexcept \
+    { return const_iterator(container.cend()); } \
 
 #define assert_debug(expr, msg) assert(expr && msg)
 
@@ -98,7 +117,7 @@ public:
 
 template <typename Func>
 requires requires(Func&& fn) { fn(); }
-struct finally
+struct finally final
 {
     Func fn;
     finally(Func&& fn) noexcept
@@ -110,6 +129,40 @@ struct finally
         fn();
     }
 };
+
+template <std::input_or_output_iterator Iterator>
+requires(pointer<typename std::iterator_traits<Iterator>::value_type>)
+struct pointer_iterator_wrapper final
+{
+private:
+    Iterator _iter;
+
+public:
+    using difference_type   = ptrdiff_t;
+    using iterator_category = typename std::iterator_traits<Iterator>::iterator_category;
+    using value_type        = typename std::remove_pointer<typename std::iterator_traits<Iterator>::value_type>::type;
+    using pointer           = typename std::iterator_traits<Iterator>::value_type;
+    using reference         = typename std::remove_pointer<typename std::iterator_traits<Iterator>::value_type>::type&;
+
+    pointer_iterator_wrapper() noexcept {};
+    explicit pointer_iterator_wrapper(const Iterator& iter) : _iter(iter) {}
+
+    reference operator*()
+    { return *(*_iter); }
+    pointer operator->()
+    { return (*_iter); }
+    pointer_iterator_wrapper& operator++()
+    { ++_iter; return *this; }
+    pointer_iterator_wrapper operator++(int)
+    { return pointer_iterator_wrapper(_iter++); }
+    pointer_iterator_wrapper& operator--()
+    { --_iter; return *this; }
+    pointer_iterator_wrapper operator--(int)
+    { return pointer_iterator_wrapper(_iter--); }
+    friend bool operator==(const pointer_iterator_wrapper& rhs, const pointer_iterator_wrapper& lhs) noexcept
+    { return rhs._iter == lhs._iter; }
+};
+
 
 namespace memory {
 

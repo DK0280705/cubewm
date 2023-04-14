@@ -7,6 +7,8 @@
  */
 #include "node.h"
 #include "geometry.h"
+#include <iterator>
+#include <type_traits>
 #include <vector>
 
 class Container
@@ -29,7 +31,7 @@ public:
     Layout_container() noexcept = default;
 
     virtual ~Layout_container()
-    { for (const auto& c : *this) delete c; };
+    { for (const auto& c : *this) delete &c; };
 };
 
 class Horizontal_container : public Layout_container

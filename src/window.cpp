@@ -35,13 +35,18 @@ void purge(Window& window)
     auto& parent = window.parent()->get();
     parent.remove(window);
 
-    if (parent.size() < 2) {
+    // TODO: Fix this code smell
+    if (parent.empty()) {
         assert(parent.parent());
         auto& gparent = parent.parent()->get();
-        if (parent.size() and not parent.front()->get().is_leaf())
-            transfer(parent.front()->get(), gparent);
-        else
-            gparent.remove(parent);
+        gparent.remove(parent);
+        delete &parent;
+        gparent.update_rect();
+    }
+    else if (parent.size() == 1 and !parent.front()->get().is_leaf()) {
+        assert(parent.parent());
+        auto& gparent = parent.parent()->get();
+        transfer(parent.front()->get(), gparent);
         delete &parent;
         gparent.update_rect();
     } else {
@@ -49,10 +54,10 @@ void purge(Window& window)
     }
 }
 
-std::optref<Window> find_window_by_position(Workspace* ws, const Point2D& pos)
+std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos)
 {
-    auto it = std::ranges::find_if(ws->window_list(), [&](const auto& win){
+    auto it = std::ranges::find_if(ws.window_list(), [&](const auto& win){
         return Vector2D::contains(win->rect(), pos);
     });
-    return (it != ws->window_list().end()) ? std::optref<Window>(*(*it)) : std::nullopt;
+    return (it != ws.window_list().end()) ? std::optref<Window>(*(*it)) : std::nullopt;
 }
