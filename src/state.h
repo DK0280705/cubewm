@@ -46,7 +46,7 @@ private:
     Server*             _server{};
     // The keyboard manager, late initialization.
     Keyboard*           _keyboard{};
-    // Current focused Workspace and Monitor
+    // Current focused Workspace and Monitor and Workspace specific container
     Workspace*          _current_workspace;
     Monitor*            _current_monitor;
 
@@ -79,7 +79,7 @@ public:
         _current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
     }
 
-    ~State()
+    ~State() noexcept
     {
         // Recursively clear the tree.
         _mon_mgr.clear();
@@ -121,25 +121,25 @@ public:
     constexpr const Server& server() const noexcept
     { assert(_server); return *_server; }
 
-    inline void current_workspace(Workspace* ws)
+    inline void current_workspace(Workspace& ws)
     {
-        _current_workspace = ws;
+        _current_workspace = &ws;
         notify(observable::current_workspace_update);
     }
 
-    inline void current_monitor(Monitor* mon)
+    inline void current_monitor(Monitor& mon)
     {
-        _current_monitor = mon;
+        _current_monitor = &mon;
         notify(observable::current_monitor_update);
     }
 
-    inline Workspace& current_workspace() const
+    inline Workspace& current_workspace() const noexcept
     { return *_current_workspace; }
 
-    inline Monitor& current_monitor() const
+    inline Monitor& current_monitor() const noexcept
     { return *_current_monitor; }
 
-    static inline Timestamp& timestamp()
+    static inline Timestamp& timestamp() noexcept
     { return _timestamp; }
 };
 

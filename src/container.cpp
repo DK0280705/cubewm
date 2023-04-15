@@ -31,8 +31,8 @@ void Vertical_container::update_rect() noexcept
     logger::debug("Vcon rect update -> x: {}, y: {}, width: {}, height: {}",
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
-    int next_pos_y         = rect.pos.y;
-    const int f_height     = _fraction(size(), (float)rect.size.y);
+    int next_pos_y     = rect.pos.y;
+    const int f_height = _fraction(size(), (float)rect.size.y);
     for (auto& child : *this) {
         child.rect({
             { rect.pos.x, next_pos_y },

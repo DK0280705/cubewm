@@ -1,5 +1,4 @@
-#include "workspace.h"
-#include "window.h"
+#include "state.h"
 #include "logger.h"
 #include <algorithm>
 

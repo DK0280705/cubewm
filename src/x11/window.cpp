@@ -291,7 +291,7 @@ static Workspace& _load_workspace(State& state, ::Window& window)
 {
     const auto ws_id = _fetch_workspace(window.index());
     auto& wor_mgr    = state.manager<Workspace>();
-    return wor_mgr.get(ws_id).value_or(wor_mgr.manage(ws_id));
+    return wor_mgr.contains(ws_id) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
 }
 
 void load_all(State& state)

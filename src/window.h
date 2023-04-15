@@ -35,6 +35,9 @@ public:
     inline void busy(const bool b) noexcept
     { _busy = b; }
 
+    void accept(const container_visitor& visitor) noexcept override
+    { visitor(*this); }
+
     ~Window() noexcept
     { delete _frame; }
 };

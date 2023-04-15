@@ -50,8 +50,9 @@ public:
 
 public:
     void update_rect() noexcept override;
+    void accept(const container_visitor& visitor) noexcept override
+    { visitor(*this); }
 
     ~Workspace() noexcept override
     { for (const auto& c : *this) delete &c; }
 };
-

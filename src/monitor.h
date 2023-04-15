@@ -23,6 +23,8 @@ public:
     {}
 
     void update_rect() noexcept override;
+    void accept(const container_visitor& visitor) noexcept override
+    { visitor(*this); }
 
     virtual ~Monitor()
     { for (const auto& ws : _workspaces) delete ws; }

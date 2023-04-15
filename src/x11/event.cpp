@@ -186,11 +186,9 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
     if (const auto& winref = win_mgr.get(event.event)) {
         ::Window& window = winref->get();
         auto& window_list = window.root<Workspace>().window_list();
-        if (!window_list.current().has_value() or &window == &window_list.current()->get()) {
-            logger::debug("Focus in -> ignoring current focused");
-            return;
-        }
-        window_list.focus(std::ranges::find(window_list, window));
+        if (window_list.current().has_value() and window != window_list.current()->get()) {
+            window_list.focus(std::ranges::find(window_list, window));
+        } else logger::debug("Focus in -> ignoring current focused");
     } else {
         logger::debug("Focus in -> ignoring unmanaged window");
     }

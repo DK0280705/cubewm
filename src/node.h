@@ -64,11 +64,11 @@ public:
 
     template <std::derived_from<Leaf<T>> L = Leaf<T>>
     inline const L& leaf() const
-    { assert(!_is_leaf); return static_cast<const L&>(*this); }
+    { assert(_is_leaf); return static_cast<const L&>(*this); }
 
     template <std::derived_from<Leaf<T>> L = Leaf<T>>
     inline L& leaf()
-    { assert(!_is_leaf); return static_cast<L&>(*this); }
+    { assert(_is_leaf); return static_cast<L&>(*this); }
 
     inline bool is_leaf() const noexcept
     { return _children.empty(); }

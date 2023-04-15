@@ -130,7 +130,7 @@ struct finally final
     }
 };
 
-template <std::input_or_output_iterator Iterator>
+template <std::bidirectional_iterator Iterator>
 requires(pointer<typename std::iterator_traits<Iterator>::value_type>)
 struct pointer_iterator_wrapper final
 {
