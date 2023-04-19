@@ -308,7 +308,7 @@ void load_all(State& state)
 
         window::grab_keys(state.keyboard(), window.index());
 
-        place_to(ws, window);
+        place(window, ws);
         ws.window_list().add(window);
         xcb_map_window(X11::_conn(), window.index());
     }

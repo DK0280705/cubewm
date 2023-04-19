@@ -9,8 +9,6 @@
 class State;
 class Workspace;
 class Keyboard;
-struct xcb_get_window_attributes_reply_t;
-struct xcb_get_geometry_reply_t;
 
 namespace X11 {
 class Connection;
@@ -18,7 +16,6 @@ class Connection;
 // Have a good time with this :)
 class Window : public ::Window
 {
-    using xcb_atom_t = unsigned int;
     xcb_atom_t  _type;
     std::string _role;
     std::string _class;
@@ -51,9 +48,6 @@ class Window_frame : public ::Window_frame
 {
 public:
     Window_frame(Window& window);
-
-    void focus() override {};
-    void unfocus() override {};
 };
 
 namespace window {

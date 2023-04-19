@@ -16,8 +16,7 @@ public:
     virtual ~Focusable() noexcept = default;
 };
 
-class Window_frame : public Focusable
-                   , public Managed<unsigned int>
+class Window_frame : public Managed<unsigned int>
 {
     Window& _window;
 

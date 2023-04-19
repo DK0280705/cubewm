@@ -1,31 +1,45 @@
 #include "window.h"
-#include "node.h"
+#include "layout.h"
 #include "window.h"
 #include "workspace.h"
 #include "logger.h"
 
-void place_to(Workspace& ws, Window& window, bool create_new)
+void place(Window& window, Workspace& workspace)
 {
-    logger::debug("Placing window {:x} to workspace {}", window.index(), ws.index());
-    if (ws.empty() || create_new) {
+    logger::debug("Placing window {:x} to workspace {}", window.index(), workspace.index());
+    if (workspace.empty()) {
         // By default it's a horizontal container
         // Maybe i will add a config to change default container
-        Layout_container* con = new Horizontal_container();
+        Layout* con = new Layout(Layout::Type::Horizontal);
         con->add(window);
-        ws.add(*con);
-        ws.update_rect();
+        workspace.add(*con);
+        workspace.update_rect();
     } else {
         // This must exist, if not, then there's no focused window on workspace
         // While there's one. This is not permissible.
-        assert(ws.window_list().current());
-        auto& win = ws.window_list().current()->get();
+        assert(workspace.window_list().current());
+        auto& current_win = workspace.window_list().current()->get();
 
         // Don't add window to focus list before calling this function.
-        assert(&win != &window);
-        assert(win.parent());
-        auto& parent = win.parent()->get();
-        parent.add(window);
-        parent.update_rect();
+        assert(&current_win != &window);
+        assert(current_win.parent());
+        auto& parent = static_cast<Layout&>(current_win.parent()->get());
+        const auto& markref = current_win.marked_as_new_layout();
+        if (markref and markref.value() != parent.type()) {
+            if (parent.size() > 1) {
+                Layout* con = new Layout(markref.value());
+                parent.insert(std::ranges::find(parent, current_win), *con);
+                transfer(current_win, *con);
+                con->add(window);
+                parent.update_rect();
+            } else {
+                parent.add(window);
+                parent.type(markref.value());
+            }
+        } else {
+            parent.add(window);
+            parent.update_rect();
+        }
     }
 }
 

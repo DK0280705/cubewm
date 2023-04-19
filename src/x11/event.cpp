@@ -137,7 +137,7 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
 
     ::Window& window = win_mgr.manage<X11::Window>(event.window);
     window::grab_keys(state.keyboard(), window.index());
-    place_to(state.current_workspace(), window);
+    place(window, state.current_workspace());
     xcb_map_window(state.conn(), window.index());
     xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, window.index());
 

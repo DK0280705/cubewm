@@ -8,6 +8,6 @@ static std::mutex _mutex;
 void print(const std::string& msg)
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    fmt::print("{}\n", msg); 
+    fmt::print("{}\n", msg);
 }
 }

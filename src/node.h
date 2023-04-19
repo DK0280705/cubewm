@@ -34,8 +34,8 @@ class Node : public T
 
 protected:
     // object modifiers
-    bool _is_root;
-    bool _is_leaf;
+    bool _is_root = false;
+    bool _is_leaf = false;
 public:
     DEFINE_POINTER_ITERATOR_WRAPPER(_children)
 

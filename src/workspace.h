@@ -1,5 +1,6 @@
 #pragma once
 #include "container.h"
+#include "node.h"
 #include "helper.h"
 #include "managed.h"
 #include <unordered_set>
@@ -37,7 +38,8 @@ class Workspace : public Root<Container>
 
 public:
     Workspace(const Index id) noexcept
-        : Managed(id)
+        : Root<Container>()
+        , Managed(id)
         // by default the name is the id.
         , _name(std::to_string(id))
     {}
