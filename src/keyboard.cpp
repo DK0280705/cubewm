@@ -13,6 +13,12 @@ static void _assign_default_bindings(Manager<Binding, Keybind>& manager)
     manager.manage<Move_focus>({XKB_KEY_Right, mod_mask::mod4}, Direction::Right);
     manager.manage<Move_focus>({XKB_KEY_Down,  mod_mask::mod4}, Direction::Down);
 
+    // Mod4 + Shift + arrow
+    manager.manage<Move_container>({XKB_KEY_Left,  mod_mask::mod4 | mod_mask::shift}, Direction::Left);
+    manager.manage<Move_container>({XKB_KEY_Up,    mod_mask::mod4 | mod_mask::shift}, Direction::Up);
+    manager.manage<Move_container>({XKB_KEY_Right, mod_mask::mod4 | mod_mask::shift}, Direction::Right);
+    manager.manage<Move_container>({XKB_KEY_Down,  mod_mask::mod4 | mod_mask::shift}, Direction::Down);
+
     // Mod4 + v
     // Mod4 + h
     // Mod4 + t

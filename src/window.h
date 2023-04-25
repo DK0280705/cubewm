@@ -40,11 +40,14 @@ public:
     inline void busy(const bool b) noexcept
     { _busy = b; }
 
-    inline std::optional<Layout::Type> marked_as_new_layout() const noexcept
+    inline std::optional<Layout::Type> layout_mark() const noexcept
     { return _marked_layout_type; }
 
-    inline void mark_as_new_layout(Layout::Type type) noexcept
+    inline void mark_as_layout(Layout::Type type) noexcept
     { _marked_layout_type = std::optional<Layout::Type>(type); }
+
+    inline void unmark_layout() noexcept
+    { _marked_layout_type = std::nullopt; }
 
     void accept(const container_visitor& visitor) noexcept override
     { visitor(*this); }
@@ -54,5 +57,8 @@ public:
 };
 
 void place(Window& window, Workspace& workspace);
-void purge(Window& window);
+// return false if window is not marked.
+bool move_to_marked_window(Window& window, Window& marked_window);
+void purge(Window& window, bool rebase = true);
+bool purge_sole_node(Node<Container>& node);
 std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos);

@@ -21,6 +21,9 @@ public:
     { return _type; }
 
     inline void type(const Layout::Type& type) noexcept
+    { _type = type; }
+
+    inline void update_type(const Layout::Type& type) noexcept
     { _type = type; update_rect(); }
 
 public:

@@ -83,40 +83,49 @@ public:
     {
         assert(!_is_leaf);
         assert(!node._is_root);
+        assert(!(_is_root && node._is_leaf));
         node._parent = this;
         _children.push_back(&node);
     }
 
     void remove(Node<T>& node)
     {
-        assert(!_is_leaf);
-        assert(!node._is_root);
-        node._parent = nullptr;
-        _children.erase(std::ranges::find(_children, &node));
+        auto node_it = std::ranges::find(_children, &node);
+        assert(node_it != _children.end());
+        (*node_it)->_parent = nullptr;
+        _children.erase(node_it);
+    }
+
+    void erase(const_iterator node_it)
+    {
+        node_it->_parent = nullptr;
+        _children.erase(node_it);
     }
 
     void insert(const_iterator position, Node<T>& node)
     {
         assert(!_is_leaf);
         assert(!node._is_root);
+        assert(!(_is_root && node._is_leaf));
         node._parent = this;
         _children.insert(position, &node);
     }
 
-    void shift(const_iterator position, int shift_pos)
+    void shift_forward(const_iterator position)
     {
-        assert(!_is_leaf);
-        assert(shift_pos);
-        auto it_pos = (shift_pos > 0) ? std::ranges::next(position, 1 + shift_pos)
-                                      : std::ranges::prev(position, shift_pos);
-        _children.splice(it_pos, _children, position);
+        _children.splice(std::ranges::next(position, 2), _children, position);
+    }
+
+    void shift_backward(const_iterator position)
+    {
+        _children.splice(std::ranges::prev(position), _children, position);
     }
 
     virtual ~Node() noexcept = default;
 };
 
 template <typename T>
-inline const Node<T>& get_root(const Node<T>& node)
+inline const Root<T>& get_root(const Node<T>& node)
 {
     const Node<T>* n = &node;
     while (n->parent()) n = &n->parent()->get();
@@ -125,12 +134,28 @@ inline const Node<T>& get_root(const Node<T>& node)
 }
 
 template <typename T>
-inline Node<T>& get_root(Node<T>& node)
+inline Root<T>& get_root(Node<T>& node)
 {
     Node<T>* n = &node;
     while (n->parent()) n = &n->parent()->get();
     assert(n->is_root());
-    return *n;
+    return static_cast<Root<T>&>(*n);
+}
+
+template <typename T>
+inline Leaf<T>& get_front_leaf(Node<T>& node)
+{
+    Node<T>* leaf = &node;
+    while (!leaf->is_leaf()) leaf = &leaf->front()->get();
+    return static_cast<Leaf<T>&>(*leaf);
+}
+
+template <typename T>
+inline Leaf<T>& get_back_leaf(Node<T>& node)
+{
+    Node<T>* leaf = &node;
+    while (!leaf->is_leaf()) leaf = &leaf->back()->get();
+    return static_cast<Leaf<T>&>(*leaf);
 }
 
 template <typename T>
