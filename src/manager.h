@@ -33,7 +33,7 @@ public:
     inline Type& at(const Key& key) const
     { return *_managed.at(key); }
 
-    inline std::optref<Type> get(const Key& key) const noexcept
+    inline std::optref<Type> operator[](const Key& key) const noexcept
     { return _managed.contains(key) ? std::optref<Type>(*_managed.at(key)) : std::nullopt; }
 
     inline bool contains(const Key& key) const noexcept
@@ -66,5 +66,10 @@ public:
         for (const auto& [_, m] : _managed)
             delete m;
         _managed.clear();
+    }
+
+    void connect(typename Observable<Manager<Type, Key>>::Observer observer)
+    {
+        Observable<Manager<Type, Key>>::connect(0, observer);
     }
 };

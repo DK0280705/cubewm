@@ -24,8 +24,8 @@ static void _acquire_first_timestamp(const Connection& conn)
     window::change_attributes(conn.xscreen()->root,
                               XCB_CW_EVENT_MASK,
                               std::span{mask});
-    window::change_property(window::prop::append,
-                            conn.xscreen()->root,
+    window::change_property(conn.xscreen()->root,
+                            window::prop::append,
                             XCB_ATOM_SUPERSCRIPT_X,
                             XCB_ATOM_CARDINAL,
                             std::span<const uint32_t, 0>{});
@@ -76,6 +76,7 @@ static void _acquire_selection_owner(const Connection&  conn,
     const xcb_client_message_event_t event = {
         .response_type = XCB_CLIENT_MESSAGE,
         .format        = 32,
+        .sequence      = 0,
         .window        = conn.xscreen()->root,
         .type          = atom::MANAGER,
         .data = {.data32 = {State::timestamp(), atom::WM_SN, main_window}}};
@@ -91,8 +92,8 @@ static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
 #undef xmacro
     };
 
-    window::change_property(window::prop::replace,
-                            conn.xscreen()->root,
+    window::change_property(conn.xscreen()->root,
+                            window::prop::replace,
                             atom::_NET_SUPPORTED,
                             XCB_ATOM_ATOM,
                             std::span{supported_atoms});
@@ -100,18 +101,18 @@ static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
     // Setup main window property
     static const char* name = "cube";
 
-    window::change_property(window::prop::replace,
-                            conn.xscreen()->root,
+    window::change_property(conn.xscreen()->root,
+                            window::prop::replace,
                             atom::_NET_SUPPORTING_WM_CHECK,
                             XCB_ATOM_WINDOW,
                             std::span{&main_window, 1});
-    window::change_property(window::prop::replace,
-                            main_window,
+    window::change_property(main_window,
+                            window::prop::replace,
                             atom::_NET_SUPPORTING_WM_CHECK,
                             XCB_ATOM_WINDOW,
                             std::span{&main_window, 1});
-    window::change_property(window::prop::replace,
-                            main_window,
+    window::change_property(main_window,
+                            window::prop::replace,
                             atom::_NET_WM_NAME,
                             atom::UTF8_STRING,
                             std::span{&name, 1});
@@ -142,13 +143,13 @@ static xcb_window_t _setup_main_window(const Connection& conn)
     static constexpr const char WM_SN_CLASS[] = "cubewm-WM_Sn\0cubewm-WM_Sn";
     static constexpr const char WM_SN_NAME[]  = "cubewm selection window";
 
-    window::change_property(window::prop::replace,
-                            main_window,
+    window::change_property(main_window,
+                            window::prop::replace,
                             XCB_ATOM_WM_CLASS,
                             XCB_ATOM_STRING,
                             std::span{WM_SN_CLASS});
-    window::change_property(window::prop::replace,
-                            main_window,
+    window::change_property(main_window,
+                            window::prop::replace,
                             XCB_ATOM_WM_NAME,
                             XCB_ATOM_STRING,
                             std::span{WM_SN_NAME});

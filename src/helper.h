@@ -88,9 +88,11 @@ public:
 template <typename T, typename K = unsigned char>
 class Observable
 {
+public:
     using Observer           = std::function<void(const T&)>;
     using Observer_container = std::unordered_map<K, std::vector<Observer>>;
 
+private:
     Observer_container _observers;
 
 public:
@@ -147,9 +149,15 @@ public:
     pointer_iterator_wrapper() noexcept {};
     pointer_iterator_wrapper(const Iterator& iter) : _iter(iter) {}
     template <std::convertible_to<Iterator> It>
-    pointer_iterator_wrapper(const pointer_iterator_wrapper<It>& iter) : _iter(iter) {}
+    pointer_iterator_wrapper(const pointer_iterator_wrapper<It>& iter) : _iter(iter.data()) {}
 
     operator Iterator() const noexcept
+    { return _iter; }
+
+    Iterator& data() noexcept
+    { return _iter; }
+
+    const Iterator& data() const noexcept
     { return _iter; }
 
     reference operator*() const noexcept

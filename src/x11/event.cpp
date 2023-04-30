@@ -1,11 +1,11 @@
 #include "../logger.h"
 #include "../state.h"
-#include "../connection.h"
 #include "atom.h"
 #include "constant.h"
 #include "extension.h"
 #include "window.h"
 #include "event.h"
+
 #include <ranges>
 #include <xcb/xproto.h>
 #include <xkbcommon/xkbcommon.h>
@@ -92,10 +92,15 @@ void handle(State& state, const Event& event)
 
 void _on_destroy_notify(State& state, const xcb_destroy_notify_event_t& event)
 {
+    logger::debug("Destroy notify -> converting to unmap notify");
     const xcb_unmap_notify_event_t unmap {
-        .sequence = event.sequence,
-        .event    = event.event,
-        .window   = event.window
+        .response_type  = XCB_UNMAP_NOTIFY,
+        .pad0           = event.pad0,
+        .sequence       = event.sequence,
+        .event          = event.event,
+        .window         = event.window,
+        .from_configure = 0,
+        .pad1           = {}
     };
     _on_unmap_notify(state, unmap);
 }
@@ -104,16 +109,12 @@ void _on_unmap_notify(State& state, const xcb_unmap_notify_event_t& event)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
 
-    if (const auto& winref = win_mgr.get(event.window)) {
+    if (const auto& winref = win_mgr[event.window]) {
+        logger::debug("Unmap notify -> unmapping window: {:#x}", event.window);
         ::Window& window = winref->get();
-        if (window.busy()) {
-            window.busy(false);
-            return;
-        }
-        auto& window_list = window.root<Workspace>().window_list();
-        window_list.remove(std::ranges::find(window_list, window));
 
-        purge(window);
+        remove_window(window.root<Workspace>().window_list(), window);
+        purge_and_reconfigure(window);
         xcb_change_save_set(state.conn(), XCB_SET_MODE_DELETE, window.index());
 
         win_mgr.unmanage(window.index());
@@ -127,24 +128,15 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
 
-    if (win_mgr.contains(event.window)) {
-        logger::debug("Map request -> ignoring managed window: {:#x}", event.window);
-        return;
+    if (const auto& winref = win_mgr[event.window]) {
+        logger::debug("Map request -> remapping managed window: {:#x}", event.window);
+        ::Window& window = winref->get();
+        xcb_map_window(state.conn(), event.window);
+        focus_window(window.root<Workspace>().window_list(), window);
+    } else {
+        window::manage(event.window, state.current_workspace(), state, false);
+        focus_last(state.current_workspace().window_list());
     }
-
-    if (!window::manageable(event.window, false))
-        return;
-
-    ::Window& window = win_mgr.manage<X11::Window>(event.window);
-    window::grab_keys(state.keyboard(), window.index());
-    place(window, state.current_workspace());
-    xcb_map_window(state.conn(), window.index());
-    xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, window.index());
-
-    // Set focus
-    auto& window_list = window.root<Workspace>().window_list();
-    window_list.add(window);
-    window_list.focus(std::prev(window_list.end(), 1));
 }
 
 void _on_enter_notify(State& state, const xcb_enter_notify_event_t& event)
@@ -154,25 +146,15 @@ void _on_enter_notify(State& state, const xcb_enter_notify_event_t& event)
         logger::debug("Enter notify -> ignoring undesired notify");
         return;
     }
-    if (const auto& winref = state.manager<::Window>().get(event.event)) {
+    if (const auto& winref = state.manager<::Window>()[event.event]) {
         ::Window& window = winref->get();
         logger::debug("Enter notify -> window is managed");
-        auto window_list = window.root<Workspace>().window_list();
-        window_list.focus(std::ranges::find(window_list, window));
+        focus_window(window.root<Workspace>().window_list(), window);
     }
 }
 
 void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
 {
-    auto& win_mgr = state.manager<::Window>();
-    // Update focus if root window received focus in
-    if (event.event == state.conn().xscreen()->root) {
-        auto& workspace = state.current_workspace();
-        logger::debug("Focus in -> refocusing focused window");
-        if (const auto& f = workspace.window_list().current())
-            f->get().focus();
-    }
-
     if (event.mode == XCB_NOTIFY_MODE_GRAB || event.mode == XCB_NOTIFY_MODE_UNGRAB) {
         logger::debug("Focus in -> ignoring keyboard grab focus notify");
         return;
@@ -183,10 +165,21 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
         return;
     }
 
-    if (const auto& winref = win_mgr.get(event.event)) {
+    auto& win_mgr = state.manager<::Window>();
+    // Update focus if root window received focus in
+    if (event.event == state.conn().xscreen()->root) {
+        if (const auto& winref = state.current_workspace().window_list().last()) {
+            logger::debug("Focus in -> refocusing focused window");
+            winref->get().focus();
+        }
+        return;
+    }
+
+    if (const auto& winref = win_mgr[event.event]) {
         ::Window& window = winref->get();
         auto& window_list = window.root<Workspace>().window_list();
-        if (window_list.current().has_value() and window != window_list.current()->get()) {
+        if (window != window_list.last()->get()) {
+            logger::debug("Focus in -> Focusing new window");
             window_list.focus(std::ranges::find(window_list, window));
         } else logger::debug("Focus in -> ignoring current focused");
     } else {
@@ -259,11 +252,11 @@ void _on_button_press(State& state, const xcb_button_press_event_t& event)
 {
     logger::debug("Button press -> x: {}, y: {}, window: {:#x}", event.event_x, event.event_y, event.event);
     if (event.child != XCB_NONE) {
-        if (const auto& winref = state.manager<::Window>().get(event.child)) {
+        if (const auto& winref = state.manager<::Window>()[event.child]) {
             logger::debug("Button press -> found child window: {:#x}", event.child);
             auto& window = winref->get();
             auto& window_list = window.root<Workspace>().window_list();
-            if (window_list.current().has_value() and window_list.current() != window)
+            if (!window_list.empty() && window_list.last() != window)
                 window_list.focus(std::ranges::find(window_list, window));
         }
     }
@@ -279,13 +272,13 @@ void _on_key_press(State& state, const xcb_key_press_event_t& event)
 {
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(state.keyboard().state(), event.detail);
     uint16_t modifiers = event.state & ~XCB_MOD_MASK_LOCK;
-
+#ifndef NDEBUG
     char keysym_name[32];
     xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
     logger::debug("Key press -> key: {}", keysym_name);
-
+#endif
     Keybind keybind = {keysym, modifiers};
-    if (const auto& bindref = state.keyboard().bindings().get(keybind)) {
+    if (const auto& bindref = state.keyboard().bindings()[keybind]) {
         logger::debug("Key press -> found binding for keybind");
         bindref->get()(state);
     }
@@ -293,10 +286,12 @@ void _on_key_press(State& state, const xcb_key_press_event_t& event)
 
 void _on_key_release(State& state, const xcb_key_release_event_t& event)
 {
+#ifndef NDEBUG
     xkb_keysym_t keysym = xkb_state_key_get_one_sym(state.keyboard().state(), event.detail);
     char keysym_name[32];
     xkb_keysym_get_name(keysym, keysym_name, sizeof(keysym_name));
     logger::debug("Key release -> key: {}", keysym_name);
+#endif
 }
 
 void _on_motion_notify(State&, const xcb_motion_notify_event_t& event)
@@ -336,7 +331,7 @@ void _on_xkb_state_notify(State& state, const xcb_xkb_state_notify_event_t& even
     if (event.changed & XCB_XKB_STATE_PART_GROUP_STATE) {
         logger::debug("XKB state notify -> Group state changed");
         xcb_ungrab_key(state.conn(), XCB_GRAB_ANY, state.conn().xscreen()->root, XCB_MOD_MASK_ANY);
-        window::grab_keys(state.keyboard(), state.conn().xscreen()->root);
+        window::grab_keys(state.conn().xscreen()->root, state.keyboard());
     }
 }
 

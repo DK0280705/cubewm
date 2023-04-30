@@ -69,9 +69,9 @@ public:
         , _current_monitor(&_mon_mgr.manage(0))
     {
         // Connect signals to managers.
-        _win_mgr.connect(0, [&](const auto&) { this->notify(State::window_manager_update); });
-        _mon_mgr.connect(0, [&](const auto&) { this->notify(State::monitor_manager_update); });
-        _wor_mgr.connect(0, [&](const auto&) { this->notify(State::workspace_manager_update); });
+        _win_mgr.connect([&](const auto&) { this->notify(State::window_manager_update); });
+        _mon_mgr.connect([&](const auto&) { this->notify(State::monitor_manager_update); });
+        _wor_mgr.connect([&](const auto&) { this->notify(State::workspace_manager_update); });
 
         // Add current workspace to current monitor, maintaining tree.
         _current_monitor->add(*_current_workspace);
@@ -89,37 +89,40 @@ public:
     // Late initialization, can't figure out a better way to do.
     template <std::derived_from<Keyboard> T>
     constexpr void init_keyboard(auto&&... args)
-    { _keyboard = &T::init(std::forward<decltype(args)>(args)...); }
+    {
+        _keyboard = &T::init(std::forward<decltype(args)>(args)...);
+    }
 
     template <std::derived_from<Server> T>
     constexpr void init_server(auto&&... args)
-    { _server = &T::init(std::forward<decltype(args)>(args)...); }
+    {
+        _server = &T::init(std::forward<decltype(args)>(args)...);
+    }
 
 public:
     constexpr const Connection& conn() const noexcept
     { return _conn; }
 
     template <std::derived_from<Managed<unsigned int>> T>
-    constexpr Manager<T>& manager() noexcept
-    { throw std::exception(); }
+    constexpr Manager<T>& manager() const noexcept
+    {
+        // Forbids all kind of foreign type
+        // This kind of template is fancy
+        throw std::exception();
+    }
 
-    template <std::derived_from<Managed<unsigned int>> T>
-    constexpr const Manager<T>& manager() const noexcept
-    { throw std::exception(); }
+    constexpr Keyboard& keyboard() const noexcept
+    {
+        // Simply boom if there's no instance;
+        assert(_keyboard);
+        return *_keyboard;
+    }
 
-    constexpr Keyboard& keyboard() noexcept
-    // Simply boom if there's no instance;
-    { assert(_keyboard); return *_keyboard; }
-
-    constexpr Server& server() noexcept
-    { assert(_server); return *_server; }
-
-    constexpr const Keyboard& keyboard() const noexcept
-    // Simply boom if there's no instance;
-    { assert(_keyboard); return *_keyboard; }
-
-    constexpr const Server& server() const noexcept
-    { assert(_server); return *_server; }
+    constexpr Server& server() const noexcept
+    {
+        assert(_server);
+        return *_server;
+    }
 
     inline void current_workspace(Workspace& ws)
     {
@@ -127,42 +130,31 @@ public:
         notify(observable::current_workspace_update);
     }
 
+    inline Workspace& current_workspace() const noexcept
+    { return *_current_workspace; }
+
     inline void current_monitor(Monitor& mon)
     {
         _current_monitor = &mon;
         notify(observable::current_monitor_update);
     }
 
-    inline Workspace& current_workspace() const noexcept
-    { return *_current_workspace; }
-
     inline Monitor& current_monitor() const noexcept
     { return *_current_monitor; }
+
 
     static inline Timestamp& timestamp() noexcept
     { return _timestamp; }
 };
 
 template <>
-constexpr Manager<Window>& State::manager() noexcept
+constexpr Manager<Window>&    State::manager() const noexcept
 { return _win_mgr; }
 
 template <>
-constexpr Manager<Monitor>& State::manager() noexcept
+constexpr Manager<Monitor>&   State::manager() const noexcept
 { return _mon_mgr; }
 
 template <>
-constexpr Manager<Workspace>& State::manager() noexcept
-{ return _wor_mgr; }
-
-template <>
-constexpr const Manager<Window>& State::manager() const noexcept
-{ return _win_mgr; }
-
-template <>
-constexpr const Manager<Monitor>& State::manager() const noexcept
-{ return _mon_mgr; }
-
-template <>
-constexpr const Manager<Workspace>& State::manager() const noexcept
+constexpr Manager<Workspace>& State::manager() const noexcept
 { return _wor_mgr; }

@@ -1,5 +1,6 @@
 #include "../connection.h"
 #include "../helper.h"
+#include "x11.h"
 #include <xcb/xcb.h>
 #include <xcb/xcb_aux.h>
 
@@ -12,6 +13,8 @@ Connection::Connection()
 {
     assert_runtime(!xcb_connection_has_error(_conn), "Failed to start connection");
     assert_runtime(_screen, "Failed to get display screen");
+    // Init X11 first, so we can call the xcb functions.
+    X11::init(*this);
 }
 
 Connection::~Connection()

@@ -6,17 +6,6 @@
  * The container can be focused or not
  */
 #include "geometry.h"
-#include <iterator>
-#include <type_traits>
-#include <vector>
-
-struct container_visitor
-{
-    virtual void operator()(class Monitor&)   const noexcept = 0;
-    virtual void operator()(class Workspace&) const noexcept = 0;
-    virtual void operator()(class Layout&)    const noexcept = 0;
-    virtual void operator()(class Window&)    const noexcept = 0;
-};
 
 class Container
 {
@@ -36,7 +25,6 @@ public:
     { _rect = rect; update_rect(); }
 
     virtual void update_rect() noexcept = 0;
-    virtual void accept(const container_visitor&) noexcept = 0;
 
     // A container is special, therefore no duplicates.
     // To be equal, means it's the same object.

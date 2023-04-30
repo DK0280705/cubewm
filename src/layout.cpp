@@ -1,10 +1,19 @@
 #include "layout.h"
 #include "logger.h"
+#include "x11/frame.h"
 
 static constexpr int _fraction(std::size_t size, float length)
 {
     const float frac = 1.0f / static_cast<float>(size);
     return (int)std::round(frac * length);
+}
+
+Layout::Layout(Type type)
+    : _type(type)
+    #ifndef USE_WAYLAND
+    , _frame(new X11::Layout_frame(*this))
+    #endif
+{
 }
 
 void Layout::update_rect() noexcept

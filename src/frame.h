@@ -1,7 +1,9 @@
 #pragma once
 #include "managed.h"
+#include "container.h"
 
 class Window;
+class Layout;
 class Focusable
 {
 protected:
@@ -16,7 +18,25 @@ public:
     virtual ~Focusable() noexcept = default;
 };
 
+class Layout_frame : public Managed<unsigned int>
+                   , public Container
+                   , public Focusable
+{
+    Layout& _layout;
+
+public:
+    Layout_frame(Index id, Layout& layout) noexcept
+        : Managed(id)
+        , _layout(layout)
+    {}
+
+    inline Layout& layout() const noexcept
+    { return _layout; }
+};
+
 class Window_frame : public Managed<unsigned int>
+                   , public Container
+                   , public Focusable
 {
     Window& _window;
 
@@ -28,9 +48,4 @@ public:
 
     inline Window& window() const noexcept
     { return _window; }
-};
-
-class Container_frame : public Focusable
-{
-
 };

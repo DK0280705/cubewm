@@ -24,7 +24,6 @@ protected:
     Connection();
 
 public:
-
     operator xcb_connection_t* () const
     { return _conn; }
 

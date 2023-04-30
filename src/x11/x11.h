@@ -1,12 +1,11 @@
 #pragma once
+#include "../connection.h"
 #include <xcb/xproto.h>
 /**
  * Separate X11 specifics from the actual window manager
  */
 
 namespace X11 {
-class Connection; // Ofcourse, this refer to X11::Connection
-
 void init(const X11::Connection& conn);
 
 // Namespace specific functions

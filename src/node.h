@@ -1,11 +1,11 @@
 #pragma once
 #include "helper.h"
-#include <bits/iterator_concepts.h>
 #include <concepts>
 #include <cstddef>
 #include <functional>
 #include <list>
 #include <ranges>
+#include <typeinfo>
 
 template <typename T>
 class Node;
@@ -51,7 +51,7 @@ public:
     inline std::optref<Node<T>> back() const noexcept
     { return _children.back() ? std::optref<Node<T>>(*_children.back()) : std::nullopt; }
 
-    inline std::optref<Node<T>> parent() const noexcept
+    inline std::optref<Node<T>> parent()const noexcept
     { return (_parent) ? std::optref<Node<T>>(*_parent) : std::nullopt; }
 
     template <std::derived_from<Root<T>> R = Root<T>>
@@ -62,13 +62,34 @@ public:
     inline R& root()
     { return static_cast<R&>(get_root(*this)); }
 
-    template <std::derived_from<Leaf<T>> L = Leaf<T>>
-    inline const L& leaf() const
-    { assert(_is_leaf); return static_cast<const L&>(*this); }
+    template <typename Cast>
+    inline bool convertible_to() const
+    {
+        if constexpr (std::derived_from<Cast, Leaf<T>>) {
+            if (!_is_leaf) return false;
+        } else if constexpr (std::derived_from<Cast, Root<T>>) {
+            if (!_is_root) return false;
+        } else {
+            if (_is_root || _is_leaf) return false;
+        }
+        return true;
+    }
 
-    template <std::derived_from<Leaf<T>> L = Leaf<T>>
-    inline L& leaf()
-    { assert(_is_leaf); return static_cast<L&>(*this); }
+    template <typename Cast>
+    inline const Cast& get() const
+    {
+        if (!convertible_to<Cast>())
+            throw std::bad_cast();
+        return static_cast<const Cast&>(*this);
+    }
+
+    template <typename Cast>
+    inline Cast& get()
+    {
+        if (!convertible_to<Cast>())
+            throw std::bad_cast();
+        return static_cast<Cast&>(*this);
+    }
 
     inline bool is_leaf() const noexcept
     { return _children.empty(); }
@@ -110,6 +131,9 @@ public:
         node._parent = this;
         _children.insert(position, &node);
     }
+
+    void clear()
+    { _children.clear(); }
 
     void shift_forward(const_iterator position)
     {

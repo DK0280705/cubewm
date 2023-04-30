@@ -19,7 +19,8 @@ struct Vector2D
     }
 };
 
-enum class Direction : unsigned char {
+enum class Direction : unsigned char
+{
     Left,
     Up,
     Right,
@@ -38,4 +39,5 @@ inline constexpr const char* direction_to_str(Direction dir)
     case Direction::Down:
         return "down";
     }
+    return "bruh"; // silent compiler
 }

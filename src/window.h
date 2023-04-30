@@ -1,5 +1,6 @@
 #pragma once
 #include "container.h"
+#include "geometry.h"
 #include "node.h"
 #include "frame.h"
 #include "layout.h"
@@ -7,58 +8,81 @@
 #include <concepts>
 
 class Workspace;
+class Window_list;
 
 class Window : public Leaf<Container>
              , public Focusable
              , public Managed<unsigned int>
 {
 protected:
-    bool          _busy;
-    std::string   _name;
-    Window_frame* _frame;
-
-    std::optional<Layout::Type> _marked_layout_type;
+    uint32_t                    _border_size{};
+    Vector2D                    _frame_extents;
+    std::string                 _name;
+    Window_frame*               _frame;
+    std::optional<Layout::Type> _layout_mark;
 
 public:
-    Window(Index id, Window_frame* frame)
-        : Leaf<Container>()
-        , Managed(id)
-        , _busy(false)
-        , _frame(frame)
-        , _marked_layout_type(std::nullopt)
-    {}
-
     inline std::string_view name() const noexcept
     { return _name; }
 
     inline Window_frame& frame() const noexcept
-    { return *_frame; }
-
-    inline bool busy() const noexcept
-    { return _busy; }
-
-    inline void busy(const bool b) noexcept
-    { _busy = b; }
+    { assert(_frame); return *_frame; }
 
     inline std::optional<Layout::Type> layout_mark() const noexcept
-    { return _marked_layout_type; }
+    { return _layout_mark; }
 
-    inline void mark_as_layout(Layout::Type type) noexcept
-    { _marked_layout_type = std::optional<Layout::Type>(type); }
+    inline void mark_layout(Layout::Type type) noexcept
+    { _layout_mark = std::optional<Layout::Type>(type); }
 
     inline void unmark_layout() noexcept
-    { _marked_layout_type = std::nullopt; }
+    { _layout_mark = std::nullopt; }
 
-    void accept(const container_visitor& visitor) noexcept override
-    { visitor(*this); }
+public:
+    Window(Index id)
+        : Leaf<Container>()
+        , Managed(id)
+        , _layout_mark(std::nullopt)
+    {}
 
     ~Window() noexcept
-    { if (_frame) delete _frame; }
+    {
+        if (_frame) delete _frame;
+    }
 };
 
-void place(Window& window, Workspace& workspace);
-// return false if window is not marked.
-bool move_to_marked_window(Window& window, Window& marked_window);
-void purge(Window& window, bool rebase = true);
+// Type safe container
+struct Marked_window
+{
+    Window& window;
+
+private:
+    constexpr Marked_window(Window& window) noexcept : window(window) {}
+    friend auto get_marked_window(Window& window) noexcept -> std::optional<Marked_window>;
+};
+
+bool is_window_marked(Window& window) noexcept;
+
+auto get_marked_window(Window& window) noexcept -> std::optional<Marked_window>;
+
+/**
+ *  Move window to workspace.
+ *  Creates a new top node if workspace empty.
+ *  Suitable for mapping window.
+*/
+void move_to_workspace(Window& window, Workspace& workspace);
+
+/**
+ *  Move window to a marked window.
+ *  Make sure window is layout marked or undefined behavior
+*/
+void move_to_marked_window(Window& window, Marked_window& m_window);
+
+/**
+ *  Purge window from its parents.
+ *  This will purge parent if parent has only one child.
+*/
+void purge_and_reconfigure(Window& window);
+
 bool purge_sole_node(Node<Container>& node);
+
 std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos);

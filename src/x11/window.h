@@ -1,14 +1,14 @@
 #pragma once
 #include "x11.h"
-#include "../frame.h"
 #include "../window.h"
 #include "../helper.h"
 #include <span>
-#include <cstdint>
 
+// Forward declarations
 class State;
 class Workspace;
 class Keyboard;
+class Mouse;
 
 namespace X11 {
 class Connection;
@@ -23,31 +23,12 @@ class Window : public ::Window
     bool        _alt_focus;
 
 public:
-    inline xcb_atom_t type() const noexcept
-    { return _type; }
-
-    inline std::string_view role() const noexcept
-    { return _role; }
-
-    inline std::string_view window_class() const noexcept
-    { return _class; }
-
-    inline std::string_view window_instance() const noexcept
-    { return _instance; }
-
-public:
     Window(Index id);
 
     void update_rect() noexcept override;
 
     void focus() override;
     void unfocus() override;
-};
-
-class Window_frame : public ::Window_frame
-{
-public:
-    Window_frame(Window& window);
 };
 
 namespace window {
@@ -65,25 +46,46 @@ template <typename T>
 static consteval int prop_size()
 { if constexpr (std::is_pointer<T>()) return sizeof(T); else return sizeof(T) * 8; }
 
-bool manageable(const uint32_t window_id, const bool must_be_mapped = false);
+auto get_attribute(const uint32_t window_id) noexcept
+    -> memory::c_owner<xcb_get_window_attributes_reply_t>;
+
+auto get_geometry(const uint32_t window_id) noexcept
+    -> memory::c_owner<xcb_get_geometry_reply_t>;
+
+bool has_proto(const uint32_t window_id, const uint32_t atom) noexcept;
+
+
+void configure_rect(const uint32_t window_id, const Vector2D& rect) noexcept;
+
+void grab_keys(const uint32_t window_id, const ::Keyboard& keyboard) noexcept;
+
+void grab_buttons(const uint32_t window_id) noexcept;
 
 void load_all(State& state);
 
-void grab_keys(const ::Keyboard& keyboard, const uint32_t window_id);
+void manage(const uint32_t window_id, Workspace& workspace, State& state, const bool is_starting_up);
 
-void grab_buttons(const uint32_t window_id);
+void send_take_focus(const uint32_t window_id) noexcept;
 
-auto get_attribute(const uint32_t window_id)
-    -> memory::c_owner<xcb_get_window_attributes_reply_t>;
+void set_input_focus(const uint32_t window_id) noexcept;
 
-auto get_geometry(const uint32_t window_id)
-    -> memory::c_owner<xcb_get_geometry_reply_t>;
-
-bool has_proto(const uint32_t window_id, const uint32_t atom);
 
 template <typename T, size_t N>
-inline void change_property_c(const window::prop mode,
-                              const uint32_t     wind,
+inline void change_property(const uint32_t     wind,
+                            const window::prop mode,
+                            const uint32_t     prop,
+                            const uint32_t     type,
+                            std::span<T, N>    data) noexcept
+{
+    constexpr int format = prop_size<T>();
+    xcb_change_property(
+        X11::_conn(), static_cast<uint8_t>(mode),
+        wind, prop, type, format, data.size(), data.data());
+}
+
+template <typename T, size_t N>
+inline void change_property_c(const uint32_t     wind,
+                              const window::prop mode,
                               const uint32_t     prop,
                               const uint32_t     type,
                               std::span<T, N>    data)
@@ -95,27 +97,15 @@ inline void change_property_c(const window::prop mode,
 }
 
 template <typename T, size_t N>
-inline void change_property(const window::prop mode,
-                            const uint32_t     wind,
-                            const uint32_t     prop,
-                            const uint32_t     type,
-                            std::span<T, N>    data)
+inline void change_attributes(const uint32_t window_id, const uint32_t mask, std::span<T, N> data) noexcept
 {
-    constexpr int format = prop_size<T>();
-    xcb_change_property(
-        X11::_conn(), static_cast<uint8_t>(mode),
-        wind, prop, type, format, data.size(), data.data());
+    xcb_change_window_attributes(X11::_conn(), window_id, mask, data.data());
 }
 
 template <typename T, size_t N>
-inline void change_attributes(const uint32_t wind, const uint32_t mask, std::span<T, N> data)
+inline void change_attributes_c(const uint32_t window_id, const uint32_t mask, std::span<T, N> data)
 {
-    xcb_change_window_attributes(X11::_conn(), wind, mask, data.data());
-}
-template <typename T, size_t N>
-inline void change_attributes_c(const uint32_t wind, const uint32_t mask, std::span<T, N> data)
-{
-    detail::check_error(xcb_change_window_attributes_checked(X11::_conn(), wind, mask, data.data()));
+    detail::check_error(xcb_change_window_attributes_checked(X11::_conn(), window_id, mask, data.data()));
 }
 
 } // namespace window

@@ -13,13 +13,10 @@ namespace X11 {
 Server::Server(State& state)
     : ::Server(state)
 {
-    // Init X11 first, so we can call the xcb functions.
-    X11::init(_state.conn());
-
     // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
 
-    window::grab_keys(_state.keyboard(), _state.conn().xscreen()->root);
+    window::grab_keys(_state.conn().xscreen()->root, _state.keyboard());
 
     // Register emwh functions
     _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
@@ -36,15 +33,10 @@ Server::Server(State& state)
         { xscreen->width_in_pixels, xscreen->height_in_pixels }
     });
 
-    // Get default workspace
-    auto& workspace = _state.current_workspace();
-
-    // <Manage all existing windows if available.
+    // Manage all existing windows if available.
     X11::window::load_all(_state);
     // Make current workspace last added window focused.
-    auto& window_list = workspace.window_list();
-    if (window_list.current())
-        window_list.focus(std::prev(window_list.end(), 1));
+    focus_last(_state.current_workspace().window_list());
 }
 
 void Server::_main_loop()
