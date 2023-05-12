@@ -16,14 +16,7 @@ Server::Server(State& state)
     // Keyboard must be initialized after xkb extension request.
     _state.init_keyboard<X11::Keyboard>(_state.conn());
 
-    window::grab_keys(_state.conn().xscreen()->root, _state.keyboard());
-
-    // Register emwh functions
-    _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
-    _state.connect(State::window_manager_update, ewmh::update_client_list);
-    _state.connect(State::workspace_manager_update, ewmh::update_desktop_names);
-    _state.connect(State::workspace_manager_update, ewmh::update_number_of_desktops);
-    _state.notify_all();
+    window::grab_keys(root_window_id(_state.conn()), _state.keyboard());
 
     auto& mon_mgr = _state.manager<::Monitor>();
     // Default, will add randr soon
@@ -37,6 +30,13 @@ Server::Server(State& state)
     X11::window::load_all(_state);
     // Make current workspace last added window focused.
     focus_last(_state.current_workspace().window_list());
+
+    // Register emwh functions
+    _state.connect(State::current_monitor_update, ewmh::update_current_desktop);
+    _state.connect(State::window_manager_update, ewmh::update_client_list);
+    _state.connect(State::workspace_manager_update, ewmh::update_desktop_names);
+    _state.connect(State::workspace_manager_update, ewmh::update_number_of_desktops);
+    _state.notify_all();
 }
 
 void Server::_main_loop()

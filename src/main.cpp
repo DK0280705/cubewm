@@ -11,6 +11,9 @@
 #include <array>
 #include <getopt.h>
 
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
+
 Timestamp State::_timestamp{}; // Avoid linker error.
 
 static bool _parse_arguments(int argc, char* const argv[])

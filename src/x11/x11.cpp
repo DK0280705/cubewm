@@ -13,18 +13,16 @@
 #include <thread>
 
 namespace X11 {
-static const Connection* _pconn = nullptr;
-static xcb_window_t _main_window = 0;
 
 static void _acquire_first_timestamp(const Connection& conn)
 {
     // Initiate requests
     xcb_grab_server(conn);
     const uint32_t mask[] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
-    window::change_attributes(conn.xscreen()->root,
+    window::change_attributes(root_window_id(conn),
                               XCB_CW_EVENT_MASK,
                               std::span{mask});
-    window::change_property(conn.xscreen()->root,
+    window::change_property(root_window_id(conn),
                             window::prop::append,
                             XCB_ATOM_SUPERSCRIPT_X,
                             XCB_ATOM_CARDINAL,
@@ -77,11 +75,11 @@ static void _acquire_selection_owner(const Connection&  conn,
         .response_type = XCB_CLIENT_MESSAGE,
         .format        = 32,
         .sequence      = 0,
-        .window        = conn.xscreen()->root,
+        .window        = root_window_id(conn),
         .type          = atom::MANAGER,
         .data = {.data32 = {State::timestamp(), atom::WM_SN, main_window}}};
 
-    xcb_send_event(conn, 0, conn.xscreen()->root, XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
+    xcb_send_event(conn, 0, root_window_id(conn), XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
 }
 
 static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
@@ -92,7 +90,7 @@ static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
 #undef xmacro
     };
 
-    window::change_property(conn.xscreen()->root,
+    window::change_property(root_window_id(conn),
                             window::prop::replace,
                             atom::_NET_SUPPORTED,
                             XCB_ATOM_ATOM,
@@ -101,7 +99,7 @@ static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
     // Setup main window property
     static const char* name = "cube";
 
-    window::change_property(conn.xscreen()->root,
+    window::change_property(root_window_id(conn),
                             window::prop::replace,
                             atom::_NET_SUPPORTING_WM_CHECK,
                             XCB_ATOM_WINDOW,
@@ -128,7 +126,7 @@ static xcb_window_t _setup_main_window(const Connection& conn)
     xcb_create_window(conn,
                       XCB_COPY_FROM_PARENT,
                       main_window,
-                      conn.xscreen()->root,
+                      root_window_id(conn),
                       // Just in case i forgor
                       -1,
                       -1,
@@ -157,9 +155,12 @@ static xcb_window_t _setup_main_window(const Connection& conn)
     return main_window;
 }
 
+static const X11::Connection* _pconnection = nullptr;
+static xcb_window_t           _main_window = 0;
+
 void init(const X11::Connection& conn)
 {
-    _pconn = &conn;
+    _pconnection = &conn;
 
     atom::init();
 
@@ -176,29 +177,34 @@ void init(const X11::Connection& conn)
     extension::init(conn);
 }
 
-const Connection& _conn()
+namespace detail {
+
+const Connection& conn() noexcept
 {
+    assert_debug(_pconnection, "X11 is not initialized yet");
     // Nahh if statement is stupid.
     // This is already stupid, let the application blow up
     // if someone put X11::_conn() before X11::init(conn)
-    return *_pconn;
+    return *_pconnection;
 }
 
-unsigned int _root_window_id()
+unsigned int root_window_id() noexcept
 {
-    return _pconn->xscreen()->root;
+    assert_debug(_pconnection, "X11 is not initialized yet");
+    return ::root_window_id(*_pconnection);
 }
 
-unsigned int _main_window_id()
+unsigned int main_window_id() noexcept
 {
+    assert_debug(_main_window != 0, "Window manager is not initialized yet");
     return _main_window;
 }
 
-namespace detail {
 void check_error(const xcb_void_cookie_t& cookie) {
-    auto reply = memory::c_own(xcb_request_check(X11::_conn(), cookie));
+    auto reply = memory::c_own(xcb_request_check(X11::detail::conn(), cookie));
     assert_runtime(!reply, "Change property failed");
 }
+
 }
 
 }

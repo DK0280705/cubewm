@@ -44,14 +44,14 @@ void init(const X11::Connection& conn)
 {
     try {
         const uint32_t mask[] = { constant::ROOT_EVENT_MASK };
-        window::change_attributes_c(conn.xscreen()->root,
+        window::change_attributes_c(root_window_id(conn),
                                     XCB_CW_EVENT_MASK,
                                     std::span{mask});
     } catch(const std::runtime_error& err) {
         // Rethrow with different message
         throw std::runtime_error("Another WM is running (X Server)");
     }
-    window::grab_buttons(conn.xscreen()->root);
+    window::grab_buttons(root_window_id(conn));
 }
 
 static void _handle_xkb(State& state, const Event& event)
@@ -109,15 +109,9 @@ void _on_unmap_notify(State& state, const xcb_unmap_notify_event_t& event)
 {
     Manager<::Window>& win_mgr = state.manager<::Window>();
 
-    if (const auto& winref = win_mgr[event.window]) {
+    if (win_mgr.contains(event.window)) {
         logger::debug("Unmap notify -> unmapping window: {:#x}", event.window);
-        ::Window& window = winref->get();
-
-        remove_window(window.root<Workspace>().window_list(), window);
-        purge_and_reconfigure(window);
-        xcb_change_save_set(state.conn(), XCB_SET_MODE_DELETE, window.index());
-
-        win_mgr.unmanage(window.index());
+        window::unmanage(event.window, state);
     } else {
         logger::debug("Unmap notify -> ignoring unmanaged window: {:#x}", event.window);
         return;
@@ -134,7 +128,7 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
         xcb_map_window(state.conn(), event.window);
         focus_window(window.root<Workspace>().window_list(), window);
     } else {
-        window::manage(event.window, state.current_workspace(), state, false);
+        window::manage(event.window, state, false);
         focus_last(state.current_workspace().window_list());
     }
 }
@@ -167,7 +161,7 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
 
     auto& win_mgr = state.manager<::Window>();
     // Update focus if root window received focus in
-    if (event.event == state.conn().xscreen()->root) {
+    if (event.event == root_window_id(state.conn())) {
         if (const auto& winref = state.current_workspace().window_list().last()) {
             logger::debug("Focus in -> refocusing focused window");
             winref->get().focus();
@@ -330,8 +324,8 @@ void _on_xkb_state_notify(State& state, const xcb_xkb_state_notify_event_t& even
                           event.lockedGroup);
     if (event.changed & XCB_XKB_STATE_PART_GROUP_STATE) {
         logger::debug("XKB state notify -> Group state changed");
-        xcb_ungrab_key(state.conn(), XCB_GRAB_ANY, state.conn().xscreen()->root, XCB_MOD_MASK_ANY);
-        window::grab_keys(state.conn().xscreen()->root, state.keyboard());
+        xcb_ungrab_key(state.conn(), XCB_GRAB_ANY, root_window_id(state.conn()), XCB_MOD_MASK_ANY);
+        window::grab_keys(root_window_id(state.conn()), state.keyboard());
     }
 }
 

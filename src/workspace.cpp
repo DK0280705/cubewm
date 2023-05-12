@@ -30,7 +30,7 @@ void Window_list::remove(const_iterator it)
     _list.erase(it);
 }
 
-Workspace::Workspace(const Index id) noexcept
+Workspace::Workspace(const Index id)
     : Root<Container>()
     , Managed(id)
     // by default the name is the id.
@@ -48,10 +48,9 @@ void Workspace::update_rect() noexcept
         lcon.rect(rect);
 }
 
-void add_window(Window_list& window_list, Window& window, bool focus)
+void add_window(Window_list& window_list, Window& window)
 {
     window_list.add(window);
-    if (focus) focus_last(window_list);
 }
 
 void focus_window(Window_list& window_list, Window& window)

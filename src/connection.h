@@ -76,3 +76,5 @@ public:
 #endif
     {}
 };
+
+uint32_t root_window_id(const X11::Connection& conn) noexcept;

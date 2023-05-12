@@ -22,6 +22,8 @@ protected:
     std::optional<Layout::Type> _layout_mark;
 
 public:
+    inline void name(const std::string& name) noexcept
+    { _name = name; }
     inline std::string_view name() const noexcept
     { return _name; }
 

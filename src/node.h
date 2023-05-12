@@ -92,7 +92,7 @@ public:
     }
 
     inline bool is_leaf() const noexcept
-    { return _children.empty(); }
+    { return _is_leaf; }
 
     inline bool is_root() const noexcept
     { return _is_root; }

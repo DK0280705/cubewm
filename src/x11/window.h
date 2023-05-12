@@ -63,7 +63,8 @@ void grab_buttons(const uint32_t window_id) noexcept;
 
 void load_all(State& state);
 
-void manage(const uint32_t window_id, Workspace& workspace, State& state, const bool is_starting_up);
+void manage(const uint32_t window_id, State& state, const bool is_starting_up);
+void unmanage(const uint32_t window_id, State& state);
 
 void send_take_focus(const uint32_t window_id) noexcept;
 
@@ -79,7 +80,7 @@ inline void change_property(const uint32_t     wind,
 {
     constexpr int format = prop_size<T>();
     xcb_change_property(
-        X11::_conn(), static_cast<uint8_t>(mode),
+        X11::detail::conn(), static_cast<uint8_t>(mode),
         wind, prop, type, format, data.size(), data.data());
 }
 
@@ -92,20 +93,20 @@ inline void change_property_c(const uint32_t     wind,
 {
     constexpr int format = prop_size<T>();
     detail::check_error(xcb_change_property_checked(
-        X11::_conn(), static_cast<uint8_t>(mode),
+        X11::detail::conn(), static_cast<uint8_t>(mode),
         wind, prop, type, format, data.size(), data.data()));
 }
 
 template <typename T, size_t N>
 inline void change_attributes(const uint32_t window_id, const uint32_t mask, std::span<T, N> data) noexcept
 {
-    xcb_change_window_attributes(X11::_conn(), window_id, mask, data.data());
+    xcb_change_window_attributes(X11::detail::conn(), window_id, mask, data.data());
 }
 
 template <typename T, size_t N>
 inline void change_attributes_c(const uint32_t window_id, const uint32_t mask, std::span<T, N> data)
 {
-    detail::check_error(xcb_change_window_attributes_checked(X11::_conn(), window_id, mask, data.data()));
+    detail::check_error(xcb_change_window_attributes_checked(X11::detail::conn(), window_id, mask, data.data()));
 }
 
 } // namespace window

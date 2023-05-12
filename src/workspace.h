@@ -36,7 +36,7 @@ class Workspace : public Root<Container>
     Layout* _focused_layout;
 
 public:
-    Workspace(const Index id) noexcept;
+    Workspace(const Index id);
 
     inline Window_list& window_list() noexcept
     { return _window_list; }
@@ -65,7 +65,7 @@ public:
         delete _floating_node;
     }
 };
-void add_window(Window_list& window_list, Window& window, bool focus = false);
+void add_window(Window_list& window_list, Window& window);
 void focus_window(Window_list& window_list, Window& window);
 void focus_last(Window_list& window_list);
 void remove_window(Window_list& window_list, Window& window);

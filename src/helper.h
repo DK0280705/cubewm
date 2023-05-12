@@ -58,9 +58,10 @@ template <typename T>
 using optref = std::optional<std::reference_wrapper<T>>;
 }
 
+template<std::derived_from<std::runtime_error> Err = std::runtime_error>
 inline void assert_runtime(const bool expr, const std::string& msg)
 {
-    (expr) ? void(0) : throw std::runtime_error(msg);
+    (expr) ? void(0) : throw Err(msg);
 }
 
 template <typename T>
@@ -174,6 +175,31 @@ public:
     { return pointer_iterator_wrapper(_iter--); }
     friend bool operator==(const pointer_iterator_wrapper& rhs, const pointer_iterator_wrapper& lhs) noexcept
     { return rhs._iter == lhs._iter; }
+};
+
+class Cube_exception : public std::runtime_error
+{
+public:
+    explicit Cube_exception(const std::string& message) noexcept
+        : std::runtime_error(message)
+    {}
+};
+
+// wtf is this name
+class Existence_error : public Cube_exception
+{
+public:
+    explicit Existence_error(const std::string& message) noexcept
+        : Cube_exception(message)
+    {}
+};
+
+class Connection_error : public Cube_exception
+{
+public:
+    explicit Connection_error(const std::string& message) noexcept
+        : Cube_exception(message)
+    {}
 };
 
 namespace memory {

@@ -145,6 +145,24 @@ public:
 
     static inline Timestamp& timestamp() noexcept
     { return _timestamp; }
+
+public:
+    template<std::derived_from<Window> Wind>
+    inline Wind& manage_window(const uint32_t window_id)
+    {
+        Wind& window = _win_mgr.manage<Wind>(window_id);
+        move_to_workspace(window, current_workspace());
+        add_window(current_workspace().window_list(), window);
+        return window;
+    }
+
+    inline void unmanage_window(const uint32_t window_id)
+    {
+        Window& window = _win_mgr.at(window_id);
+        remove_window(window.root<Workspace>().window_list(), window);
+        purge_and_reconfigure(window);
+        _win_mgr.unmanage(window.index());
+    }
 };
 
 template <>

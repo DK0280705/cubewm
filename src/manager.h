@@ -46,7 +46,7 @@ public:
     requires (std::constructible_from<Derived, Key, Args...>)
     Derived& manage(const Key& key, Args&&... args)
     {
-        assert_debug(!_managed.contains(key), "Managing already managed item");
+        assert_runtime<Existence_error>(!_managed.contains(key), "Managing already managed item");
         Derived* man = new Derived(key, std::forward<Args>(args)...);
         _managed.emplace(key, man);
         this->notify(0);
@@ -55,7 +55,7 @@ public:
 
     void unmanage(const Key& key)
     {
-        assert_debug(_managed.contains(key), "Unmanaging unmanaged item");
+        assert_runtime<Existence_error>(_managed.contains(key), "Unmanaging unmanaged item");
         delete _managed.at(key);
         _managed.erase(key);
         this->notify(0);
