@@ -1,5 +1,5 @@
 #pragma once
-#include <bits/iterator_concepts.h>
+#include "logger.h"
 #include <cassert>
 #include <concepts>
 #include <iterator>
@@ -10,13 +10,15 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <ranges>
+#include <source_location>
 
 /**
  * Defines helper classes that can be used as mixins
  * Also functions that make that classes
  */
 
-#define DECLARE_CONTAINER_WRAPPER(container) \
+#define DEFINE_CONTAINER_WRAPPER(container) \
     inline bool empty() const noexcept \
     { return container.empty(); } \
     inline typename decltype(container)::size_type size() const noexcept \
@@ -56,6 +58,32 @@ public: \
 namespace std {
 template <typename T>
 using optref = std::optional<std::reference_wrapper<T>>;
+
+namespace ranges {
+struct __contains_fn
+{
+    template<std::input_iterator I, std::sentinel_for<I> S,
+             class T, class Proj = std::identity>
+    requires std::indirect_binary_predicate<ranges::equal_to, std::projected<I, Proj>,
+                                            const T*>
+    constexpr bool operator()(I first, S last, const T& value, Proj proj = {}) const
+    {
+        return ranges::find(std::move(first), last, value, proj) != last;
+    }
+
+    template<ranges::input_range R, class T, class Proj = std::identity>
+    requires std::indirect_binary_predicate<ranges::equal_to,
+                                            std::projected<ranges::iterator_t<R>, Proj>,
+                                            const T*>
+    constexpr bool operator()(R&& r, const T& value, Proj proj = {}) const
+    {
+        return (*this)(ranges::begin(r), ranges::end(r), std::move(value), proj);
+    }
+};
+
+inline constexpr __contains_fn contains {};
+}
+
 }
 
 template<std::derived_from<std::runtime_error> Err = std::runtime_error>
@@ -66,6 +94,32 @@ inline void assert_runtime(const bool expr, const std::string& msg)
 
 template <typename T>
 concept pointer = std::is_pointer<T>::value;
+
+template <typename T>
+consteval auto func_name()
+{
+    const auto& loc = std::source_location::current();
+    return loc.function_name();
+}
+
+template <typename T>
+consteval std::string_view type_of_impl_()
+{
+    constexpr std::string_view f_name = func_name<T>();
+    return {f_name.begin() + 37, f_name.end() - 1};
+}
+
+template <typename T>
+constexpr auto type_of(T&& arg)
+{
+    return type_of_impl_<decltype(arg)>();
+}
+
+template <typename T>
+constexpr auto type_of()
+{
+    return type_of_impl_<T>();
+}
 
 // This is not a singleton
 // Just a fancy way to init something statically
@@ -90,6 +144,7 @@ template <typename T, typename K = unsigned char>
 class Observable
 {
 public:
+    using Key                = K;
     using Observer           = std::function<void(const T&)>;
     using Observer_container = std::unordered_map<K, std::vector<Observer>>;
 
@@ -97,14 +152,14 @@ private:
     Observer_container _observers;
 
 public:
-    inline void connect(K&& key, Observer observer)
+    inline void connect(Key&& key, Observer observer)
     {
-        _observers[std::forward<K>(key)].emplace_back(std::move(observer));
+        _observers[std::forward<Key>(key)].emplace_back(std::move(observer));
     }
 
-    inline void notify(K&& key) const
+    inline void notify(Key&& key) const
     {
-        const auto it = _observers.find(std::forward<K>(key));
+        const auto it = _observers.find(std::forward<Key>(key));
         if (it != _observers.end())
             for (const auto& o : it->second)
                 o(*static_cast<const T*>(this));
@@ -198,6 +253,22 @@ class Connection_error : public Cube_exception
 {
 public:
     explicit Connection_error(const std::string& message) noexcept
+        : Cube_exception(message)
+    {}
+};
+
+class Display_error : public Cube_exception
+{
+public:
+    explicit Display_error(const std::string& message) noexcept
+        : Cube_exception(message)
+    {}
+};
+
+class Server_error : public Cube_exception
+{
+public:
+    explicit Server_error(const std::string& message) noexcept
         : Cube_exception(message)
     {}
 };

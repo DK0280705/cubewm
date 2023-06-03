@@ -14,4 +14,6 @@ extern bool enable_randr;
 
 extern unsigned border_size;
 
+extern unsigned gap_size;
+
 }

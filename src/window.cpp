@@ -1,21 +1,25 @@
 #include "window.h"
+#include "config.h"
 #include "layout.h"
 #include "window.h"
 #include "workspace.h"
 #include "logger.h"
 
-bool is_window_marked(Window& window) noexcept
+void Window::update_rect() noexcept
 {
-    assert(window.parent());
-    const auto& parent  = window.parent()->get().get<Layout>();
-    const auto& markref = window.layout_mark();
-    return markref && markref.value() != parent.type();
+    _actual_size = {
+        { this->rect().pos.x + (int)config::gap_size, this->rect().pos.y + (int)config::gap_size },
+        { this->rect().size.x - 2*(int)config::gap_size, this->rect().size.y - 2*(int)config::gap_size }
+    };
+    frame().rect(this->rect());
+    _update_rect();
 }
 
-auto get_marked_window(Window& window) noexcept
-    -> std::optional<Marked_window>
+bool Window::is_marked() const noexcept
 {
-    return is_window_marked(window) ? std::optional(Marked_window(window)) : std::nullopt;
+    if (!parent().has_value()) return false;
+    const auto& parent = this->parent()->get().get<Layout>();
+    return (_layout_mark._marked) && (_layout_mark._type != parent.type());
 }
 
 void move_to_workspace(Window& window, Workspace& workspace)
@@ -25,7 +29,8 @@ void move_to_workspace(Window& window, Workspace& workspace)
     // Remove existing parent before moving.
     if (window.parent()) purge_and_reconfigure(window);
 
-    if (workspace.empty()) {
+    // Meaning its only has floating layout container.
+    if (workspace.size() == 1) {
         // By default it's a horizontal container
         // Maybe i will add a config to change default container
         Layout* con = new Layout(Layout::Type::Horizontal);
@@ -39,25 +44,28 @@ void move_to_workspace(Window& window, Workspace& workspace)
         auto& current_win = workspace.window_list().last()->get();
 
         // Don't add window to focus list before calling this function.
-        assert(&current_win != &window);
+        assert(current_win != window);
         assert(current_win.parent());
-        if (auto mw = get_marked_window(current_win)) {
-            move_to_marked_window(window, mw.value());
+        if (auto lm = current_win.layout_mark()) {
+            move_to_marked_window(window, lm.value());
         } else {
-            auto current_it = std::ranges::find(current_win.parent()->get(), current_win);
-            current_win.parent()->get().insert(std::ranges::next(current_it), window);
-            current_win.parent()->get().update_rect();
+            auto& parent     = current_win.parent()->get();
+            auto  current_it = std::ranges::find(parent, current_win);
+            parent.insert(std::ranges::next(current_it), window);
+            parent.update_rect();
         }
     }
 }
 
-void move_to_marked_window(Window& window, Marked_window& m_window)
+void move_to_marked_window(Window& window, Window::Layout_mark& layout_mark)
 {
     if (window.parent()) purge_and_reconfigure(window);
 
-    Window& marked_window = m_window.window;
-    Layout& parent        = marked_window.parent()->get().get<Layout>();
-    Layout::Type mark     = marked_window.layout_mark().value();
+    Window& marked_window = layout_mark.window();
+    Layout::Type mark     = layout_mark.type();
+
+    assert(marked_window.parent());
+    Layout& parent = marked_window.parent()->get().get<Layout>();
 
     // If parent has one child, just change the type of layout.
     if (parent.size() > 1) {
@@ -97,23 +105,15 @@ bool purge_sole_node(Node<Container>& node)
 
     // If node has one child, move its child into its parent.
     if (node.size() == 1
-    && (!node.front()->get().is_leaf() || !parent.is_root())) {
-        Node<Container>& front = node.front()->get();
+    && (!node.back()->get().is_leaf() || !parent.is_root())) {
+        Node<Container>& back = node.back()->get();
         node.erase(node.begin());
         // Iterator invalidation
-        parent.insert(std::ranges::find(parent, node), front);
+        parent.insert(std::ranges::find(parent, node), back);
         parent.erase(std::ranges::find(parent, node));
         delete &node;
 
         parent.update_rect();
     } else return false;
     return true;
-}
-
-std::optref<Window> find_window_by_position(Workspace& ws, const Point2D& pos)
-{
-    auto it = std::ranges::find_if(ws.window_list(), [&](const auto& win){
-        return Vector2D::contains(win.rect(), pos);
-    });
-    return (it != ws.window_list().end()) ? std::optref<Window>(*it) : std::nullopt;
 }

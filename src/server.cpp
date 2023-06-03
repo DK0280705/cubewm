@@ -2,26 +2,31 @@
 #include "state.h"
 #include <csignal>
 
-// Deal with C
-static Server* _psrv;
+Server* Server::_instance = 0;
 
-static void _catch_signal(int)
+static void _catch_signal(int) noexcept
 {
-    _psrv->stop();
+    Server::instance().stop();
 }
 
-Server::Server(State& state)
-    : _state(state)
-    , _stopping(false)
+Server::Server(Connection& conn) noexcept
+    : _state(State::init(conn))
+    , _running(false)
 {
     // Handle exit
-    _psrv = this;
+    _instance = this;
     std::signal(SIGINT, _catch_signal);
     std::signal(SIGQUIT, _catch_signal);
     std::signal(SIGTERM, _catch_signal);
     std::signal(SIGCHLD, [](int){});
 }
 
-Server::~Server()
+Server& Server::instance()
+{
+    assert(_instance);
+    return *_instance;
+}
+
+Server::~Server() noexcept
 {
 }

@@ -1,25 +1,23 @@
 #pragma once
+#include "binding.h"
 #include "connection.h"
-#include "server.h"
-#include "keyboard.h"
 #include "helper.h"
 #include "manager.h"
 #include "monitor.h"
 #include "workspace.h"
 #include "window.h"
-#include <stdexcept>
 #include <type_traits>
 
 class Timestamp
 {
-    unsigned int _time = 0;
+    static uint32_t _time;
 
 public:
-    operator unsigned int() const
-    { return _time; }
-
-    void update(unsigned int time)
+    Timestamp() = delete;
+    static void update(uint32_t time) noexcept
     { _time = time; }
+    static auto get() noexcept -> uint32_t
+    { return _time; }
 };
 
 class State final : public Init_once<State>
@@ -39,18 +37,13 @@ private:
     // The connection to wayland or x11 or whatever display i want to support
     Connection&         _conn;
     // Managers
+    Manager<Binding>&   _bin_mgr;
     Manager<Window>&    _win_mgr;
     Manager<Monitor>&   _mon_mgr;
     Manager<Workspace>& _wor_mgr;
-    // The server manager, late initialization.
-    Server*             _server{};
-    // The keyboard manager, late initialization.
-    Keyboard*           _keyboard{};
     // Current focused Workspace and Monitor and Workspace specific container
     Workspace*          _current_workspace;
     Monitor*            _current_monitor;
-
-    static Timestamp    _timestamp;
 
 public:
     State(const State&)            = default;
@@ -60,97 +53,59 @@ public:
 
     State(Connection& conn)
         : _conn(conn)
+        , _bin_mgr(Manager<Binding>::init())
         , _win_mgr(Manager<Window>::init())
         , _mon_mgr(Manager<Monitor>::init())
         , _wor_mgr(Manager<Workspace>::init())
-        // Set default workspace, ensure it never null.
-        , _current_workspace(&_wor_mgr.manage(0))
-        // Set default monitor, at worst, atleast it handles one monitor.
-        , _current_monitor(&_mon_mgr.manage(0))
-    {
-        // Connect signals to managers.
-        _win_mgr.connect([&](const auto&) { this->notify(State::window_manager_update); });
-        _mon_mgr.connect([&](const auto&) { this->notify(State::monitor_manager_update); });
-        _wor_mgr.connect([&](const auto&) { this->notify(State::workspace_manager_update); });
+    {}
 
-        // Add current workspace to current monitor, maintaining tree.
-        _current_monitor->add(*_current_workspace);
-        // Set rect for basic functionality.
-        _current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
-    }
+    static State& init(Connection& conn);
 
     ~State() noexcept
     {
         // Recursively clear the tree.
         _mon_mgr.clear();
+        // Unrelated to above.
+        _bin_mgr.clear();
     }
 
 public:
-    // Late initialization, can't figure out a better way to do.
-    template <std::derived_from<Keyboard> T>
-    constexpr void init_keyboard(auto&&... args)
-    {
-        _keyboard = &T::init(std::forward<decltype(args)>(args)...);
-    }
-
-    template <std::derived_from<Server> T>
-    constexpr void init_server(auto&&... args)
-    {
-        _server = &T::init(std::forward<decltype(args)>(args)...);
-    }
-
-public:
-    constexpr const Connection& conn() const noexcept
+    constexpr auto conn()       const noexcept -> const Connection&
     { return _conn; }
+    constexpr auto bindings()   const noexcept -> Manager<Binding>&
+    { return _bin_mgr; }
+    constexpr auto windows()    const noexcept -> Manager<Window>&
+    { return _win_mgr; }
+    constexpr auto monitors()   const noexcept -> Manager<Monitor>&
+    { return _mon_mgr; }
+    constexpr auto workspaces() const noexcept -> Manager<Workspace>&
+    { return _wor_mgr; }
 
-    template <std::derived_from<Managed<unsigned int>> T>
-    constexpr Manager<T>& manager() const noexcept
+    inline void current_workspace(Workspace& workspace)
     {
-        // Forbids all kind of foreign type
-        // This kind of template is fancy
-        throw std::exception();
+        assert(_wor_mgr.contains(workspace.index()));
+        _current_workspace = &workspace;
+        notify<observable::current_workspace_update>();
     }
 
-    constexpr Keyboard& keyboard() const noexcept
+    inline void current_monitor(Monitor& monitor)
     {
-        // Simply boom if there's no instance;
-        assert(_keyboard);
-        return *_keyboard;
+        assert(_mon_mgr.contains(monitor.index()));
+        _current_monitor = &monitor;
+        notify<observable::current_monitor_update>();
     }
 
-    constexpr Server& server() const noexcept
-    {
-        assert(_server);
-        return *_server;
-    }
-
-    inline void current_workspace(Workspace& ws)
-    {
-        _current_workspace = &ws;
-        notify(observable::current_workspace_update);
-    }
-
-    inline Workspace& current_workspace() const noexcept
+    inline auto current_workspace() const noexcept -> Workspace&
     { return *_current_workspace; }
 
-    inline void current_monitor(Monitor& mon)
-    {
-        _current_monitor = &mon;
-        notify(observable::current_monitor_update);
-    }
-
-    inline Monitor& current_monitor() const noexcept
-    { return *_current_monitor; }
-
-
-    static inline Timestamp& timestamp() noexcept
-    { return _timestamp; }
+    inline auto current_monitor()   const noexcept -> Monitor&
+    { return *_current_monitor;   }
 
 public:
-    template<std::derived_from<Window> Wind>
-    inline Wind& manage_window(const uint32_t window_id)
+    template<std::derived_from<Window> Window_t>
+    inline auto manage_window(const uint32_t window_id) -> Window_t&
     {
-        Wind& window = _win_mgr.manage<Wind>(window_id);
+        Window_t& window = _win_mgr.manage<Window_t>(window_id);
         move_to_workspace(window, current_workspace());
         add_window(current_workspace().window_list(), window);
         return window;
@@ -163,16 +118,47 @@ public:
         purge_and_reconfigure(window);
         _win_mgr.unmanage(window.index());
     }
+
+private:
+    template<observable obs>
+    inline constexpr const auto& _dispatch_observable_const() const noexcept
+    {
+        if constexpr (obs == current_workspace_update
+                   || obs == current_monitor_update)
+            return static_cast<const Observable<State>&>(*this);
+        else if constexpr(obs == window_manager_update)
+            return static_cast<const Observable<Manager<Window>>&>(_win_mgr);
+        else if constexpr(obs == monitor_manager_update)
+            return static_cast<const Observable<Manager<Monitor>>&>(_mon_mgr);
+        else if constexpr(obs == workspace_manager_update)
+            return static_cast<const Observable<Manager<Workspace>>&>(_wor_mgr);
+    }
+
+    template <observable obs>
+    inline constexpr auto& _dispatch_observable() noexcept
+    {
+        const auto& o = _dispatch_observable_const<obs>();
+        return const_cast<typename std::remove_cvref<decltype(o)>::type&>(o);
+    }
+
+public:
+    template<observable obs, typename Observer>
+    constexpr void connect(Observer observer) noexcept
+    {
+        _dispatch_observable<obs>().connect(obs, observer);
+    }
+
+    template <observable obs>
+    constexpr void notify() const
+    {
+        _dispatch_observable_const<obs>().notify(obs);
+    }
+
+    inline void notify_all() const
+    {
+        Observable<State>::notify_all();
+        _win_mgr.notify_all();
+        _mon_mgr.notify_all();
+        _wor_mgr.notify_all();
+    }
 };
-
-template <>
-constexpr Manager<Window>&    State::manager() const noexcept
-{ return _win_mgr; }
-
-template <>
-constexpr Manager<Monitor>&   State::manager() const noexcept
-{ return _mon_mgr; }
-
-template <>
-constexpr Manager<Workspace>& State::manager() const noexcept
-{ return _wor_mgr; }

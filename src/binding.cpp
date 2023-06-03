@@ -6,6 +6,8 @@
 #include "state.h"
 #include "window.h"
 
+//TODO: FIX ALL OF THIS MESS
+
 template<Direction prev, Direction next> requires(prev != next)
 static auto _get_iter_by_direction(Node<Container>& parent, Node<Container>::const_iterator child_it, Direction dir)
     -> Node<Container>::const_iterator
@@ -116,9 +118,7 @@ void Move_focus::operator()(State& state) const noexcept
                 break;
             }
         }
-
-        auto& window_list = state.current_workspace().window_list();
-        window_list.focus(std::ranges::find(window_list, get_front_leaf(*it)));
+        focus_window(state.current_workspace().window_list(), get_front_leaf(*it).get<Window>());
     }
 }
 
@@ -159,8 +159,8 @@ static void _move_to_nearest_neighbour(Window& window,
     Node<Container>& neighbour = *neighbour_it;
     window.unmark_layout();
     if (neighbour.is_leaf()) {
-        if (auto mw = get_marked_window(neighbour.get<Window>())) {
-            move_to_marked_window(window, mw.value());
+        if (auto lm = neighbour.get<Window>().layout_mark()) {
+            move_to_marked_window(window, lm.value());
         } else {
             switch (dir) {
             case Direction::Up:
@@ -203,7 +203,7 @@ static void _move_to_nearest_neighbour(Window& window,
 static void _move_to_top_node(Window& window, Workspace& workspace, Direction dir) noexcept
 {
     purge_and_reconfigure(window);
-    Layout& top  = workspace.front()->get().get<Layout>();
+    Layout& top  = workspace.back()->get().get<Layout>();
     auto    type = _get_direction_compatible_layout_type(dir);
     if (top.type() == type) {
         top.add(window);
@@ -277,7 +277,7 @@ void Move_container::operator()(State& state) const noexcept
             logger::debug("Move container -> can be moved to nearest neighbour");
             _move_to_nearest_neighbour(window, parent.get(), child_it, side_it, _dir);
         } else {
-            Layout& top_layout = state.current_workspace().front()->get().get<Layout>();
+            Layout& top_layout = state.current_workspace().back()->get().get<Layout>();
             if (top_layout.size() == 1) return;
 
             switch (top_layout.type()) {

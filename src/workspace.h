@@ -28,31 +28,24 @@ public:
 class Workspace : public Root<Container>
                 , public Managed<unsigned int>
 {
-    Window_list _window_list;
     std::string _name;
+    Window_list _window_list;
 
-    // Exclusive floating node
-    Layout* _floating_node;
     Layout* _focused_layout;
 
 public:
     Workspace(const Index id);
 
-    inline Window_list& window_list() noexcept
-    { return _window_list; }
-
-    inline const Window_list& window_list() const noexcept
-    { return _window_list; }
-
-    inline std::string_view name() const noexcept
+    inline auto name() const noexcept -> std::string_view
     { return _name; }
 
-    inline Layout& floating_node() const noexcept
-    { return *_floating_node; }
+    inline auto window_list() noexcept -> Window_list&
+    { return _window_list; }
+    inline auto window_list() const noexcept -> const Window_list&
+    { return _window_list; }
 
-    inline std::optref<Layout> focused_layout() const noexcept
+    inline auto focused_layout() const noexcept -> std::optref<Layout>
     { return _focused_layout ? std::optref<Layout>(*_focused_layout) : std::nullopt; }
-
     inline void focused_layout(Layout& layout) noexcept
     { _focused_layout = &layout; }
 
@@ -62,10 +55,43 @@ public:
     ~Workspace() noexcept override
     {
         for (const auto& c : *this) delete &c;
-        delete _floating_node;
     }
 };
+
+/**
+ * @brief Add window to window list.
+ * Performs additional debug checks
+ * @param window_list
+ * @param window
+ */
 void add_window(Window_list& window_list, Window& window);
+
+/**
+ * @brief Focus a window from window list.
+ * Performs additional debug checks
+ * @param window_list
+ * @param window
+ */
 void focus_window(Window_list& window_list, Window& window);
+
+/**
+ * @brief Focus last window in a window list.
+ * Do nothing if it's empty.
+ * @param window_list
+ */
 void focus_last(Window_list& window_list);
+
+/**
+ * @brief Try to focus a window from its window list.
+ * Performs additional debug checks
+ * @param window
+ */
+void try_focus_window(Window& window);
+
+/**
+ * @brief Remove window from window list.
+ * Performs additional debug checks
+ * @param window_list
+ * @param window
+ */
 void remove_window(Window_list& window_list, Window& window);

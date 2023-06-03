@@ -20,7 +20,7 @@ message("=== ${PROJECT_NAME} ${PROJECT_VERSION}")
 message("-- Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_FLAGS "")
-set(CMAKE_CXX_FLAGS_DEBUG "-Og -g3")
+set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3")
 set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 
 add_compile_options(
@@ -35,7 +35,7 @@ add_compile_options(
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
 find_package(PkgConfig)
-pkg_check_modules(DEPS REQUIRED gtk4 xcb xcb-icccm xcb-keysyms xcb-xkb xcb-randr xcb-shape xcb-util xkbcommon xkbcommon-x11 xcb-cursor fmt)
+pkg_check_modules(DEPS REQUIRED xcb xcb-icccm xcb-keysyms xcb-xkb xcb-randr xcb-shape xcb-util xkbcommon xkbcommon-x11 xcb-cursor fmt)
 
 include_directories(${DEPS_INCLUDE_DIRS})
 add_executable(${PROJECT_NAME} ${SRC_FILES})

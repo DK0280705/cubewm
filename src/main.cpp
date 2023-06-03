@@ -11,11 +11,6 @@
 #include <array>
 #include <getopt.h>
 
-#include <gdk/gdk.h>
-#include <gtk/gtk.h>
-
-Timestamp State::_timestamp{}; // Avoid linker error.
-
 static bool _parse_arguments(int argc, char* const argv[])
 {
     static constexpr std::array<option, 3> options{{
@@ -51,6 +46,8 @@ static bool _parse_arguments(int argc, char* const argv[])
 
 int main(int argc, char* const argv[])
 {
+    // Parse config file here
+
     if (!_parse_arguments(argc, argv))
         return 0;
 
@@ -59,16 +56,11 @@ int main(int argc, char* const argv[])
     try {
         Connection& conn = Connection::init();
 
-        State& state = State::init(conn);
-
 #ifdef USE_WAYLAND
-        using Server_type = typename Wayland::Server;
+        Server& srv = Wayland::Server::init(conn);
 #else
-        using Server_type = typename X11::Server;
+        Server& srv = X11::Server::init(conn);
 #endif
-
-        state.init_server<Server_type>(state);
-        Server& srv = state.server();
 
         srv.start();
     } catch (const std::runtime_error& err) {

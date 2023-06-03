@@ -10,12 +10,13 @@
 
 class Connection;
 
-template <typename Type, typename Key = unsigned int>
-requires (std::is_base_of<Managed<Key>, Type>::value)
-class Manager : public Init_once<Manager<Type, Key>>
-              , public Observable<Manager<Type, Key>>
+template <typename Type>
+requires (std::is_base_of<Managed<typename Type::Index>, Type>::value)
+class Manager : public Init_once<Manager<Type>>
+              , public Observable<Manager<Type>>
 {
 public:
+    using Key                = typename Type::Index;
     using Managed_container  = std::unordered_map<Key, Type*>;
 
 private:
@@ -39,7 +40,7 @@ public:
     inline bool contains(const Key& key) const noexcept
     { return _managed.contains(key); }
 
-    DECLARE_CONTAINER_WRAPPER(_managed)
+    DEFINE_CONTAINER_WRAPPER(_managed)
 
 public:
     template <std::derived_from<Type> Derived = Type, typename...Args>
@@ -49,7 +50,7 @@ public:
         assert_runtime<Existence_error>(!_managed.contains(key), "Managing already managed item");
         Derived* man = new Derived(key, std::forward<Args>(args)...);
         _managed.emplace(key, man);
-        this->notify(0);
+        this->notify_all();
         return *man;
     }
 
@@ -58,7 +59,7 @@ public:
         assert_runtime<Existence_error>(_managed.contains(key), "Unmanaging unmanaged item");
         delete _managed.at(key);
         _managed.erase(key);
-        this->notify(0);
+        this->notify_all();
     }
 
     void clear() noexcept
@@ -66,10 +67,5 @@ public:
         for (const auto& [_, m] : _managed)
             delete m;
         _managed.clear();
-    }
-
-    void connect(typename Observable<Manager<Type, Key>>::Observer observer)
-    {
-        Observable<Manager<Type, Key>>::connect(0, observer);
     }
 };

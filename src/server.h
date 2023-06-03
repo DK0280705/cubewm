@@ -1,27 +1,35 @@
 #pragma once
+#include "xkb.h"
 /**
  * Implements server for running everything
  * Not a god class, *sigh*, don't
  */
 
+class Connection;
 class State;
 
 class Server
 {
 protected:
     State& _state;
-    bool   _stopping;
+    XKB*   _xkb;
+    bool   _running;
 
 public:
-    inline bool stopping() const
-    { return _stopping; }
+    static Server& instance();
 
-public:
+    inline bool is_running() const noexcept
+    { return _running; }
+
+    inline auto xkb() const noexcept -> XKB&
+    { return *_xkb; }
+
     virtual void start() = 0;
     virtual void stop()  = 0;
 
-    virtual ~Server();
+    virtual ~Server() noexcept;
 
 protected:
-    Server(State& state);
+    static Server* _instance;
+    Server(Connection& conn) noexcept;
 };

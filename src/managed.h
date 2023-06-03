@@ -1,10 +1,10 @@
 #pragma once
 
-template <typename Key>
+template <typename I>
 class Managed
 {
 public:
-    using Index = Key;
+    using Index = I;
 
 private:
     Index _id;

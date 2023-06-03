@@ -3,32 +3,50 @@
 #include "../window.h"
 #include "../helper.h"
 #include <span>
+#include <xcb/xcb_icccm.h>
 
 // Forward declarations
 class State;
 class Workspace;
-class Keyboard;
-class Mouse;
+
+struct Window::X11_property
+{
+    uint32_t              type;
+    std::string           role;
+    xcb_icccm_wm_hints_t  wm_hints;
+    std::vector<uint32_t> protocols;
+    struct WM_class
+    {
+        std::string wclass;
+        std::string instance;
+    } wm_class;
+};
 
 namespace X11 {
+
+namespace detail {
+// i dunno, let the compiler guess
+// Not very important, keep it one line
+template <typename T>
+static consteval int prop_size()
+{ if constexpr (std::is_pointer<T>()) return sizeof(T); else return sizeof(T) * 8; }
+} // namespace detail
+
 class Connection;
 
 // Have a good time with this :)
 class Window : public ::Window
 {
-    xcb_atom_t  _type;
-    std::string _role;
-    std::string _class;
-    std::string _instance;
-    bool        _alt_focus;
+    bool _do_not_focus;
+    void _update_rect() noexcept override;
 
 public:
     Window(Index id);
 
-    void update_rect() noexcept override;
-
-    void focus() override;
+    void focus()   override;
     void unfocus() override;
+
+    ~Window();
 };
 
 namespace window {
@@ -40,37 +58,84 @@ enum class prop : uint8_t
     append,
 };
 
-// i dunno, let the compiler guess
-// Not very important, keep it one line
-template <typename T>
-static consteval int prop_size()
-{ if constexpr (std::is_pointer<T>()) return sizeof(T); else return sizeof(T) * 8; }
-
+/**
+ * @brief Get X11 window attributes
+ * @param window_id
+ * @return memory::c_owner<xcb_get_window_attributes_reply_t>
+ */
 auto get_attribute(const uint32_t window_id) noexcept
     -> memory::c_owner<xcb_get_window_attributes_reply_t>;
 
+/**
+ * @brief Get X11 window geometry (size, etc).
+ * @param window_id
+ * @return memory::c_owner<xcb_get_geometry_reply_t>
+ */
 auto get_geometry(const uint32_t window_id) noexcept
     -> memory::c_owner<xcb_get_geometry_reply_t>;
 
-bool has_proto(const uint32_t window_id, const uint32_t atom) noexcept;
-
-
+/**
+ * @brief Configure X11 window rect
+ * @param window_id
+ * @param rect
+ */
 void configure_rect(const uint32_t window_id, const Vector2D& rect) noexcept;
 
-void grab_keys(const uint32_t window_id, const ::Keyboard& keyboard) noexcept;
+/**
+ * @brief Grab all keys for an X11 window
+ * @param window_id
+ * @param state
+ */
+void grab_keys(const uint32_t window_id, const State& state) noexcept;
 
+/**
+ * @brief Grab all buttons for an X11 window.
+ * You might want to use it only for root window
+ * @param window_id
+ */
 void grab_buttons(const uint32_t window_id) noexcept;
 
+/**
+ * @brief Load all X11 Windows into State object.
+ * @param state
+ */
 void load_all(State& state);
 
-void manage(const uint32_t window_id, State& state, const bool is_starting_up);
+/**
+ * @brief Manages a window and load it into State object.
+ * @param window_id
+ * @param state
+ */
+void manage(const uint32_t window_id, State& state);
+/**
+ * @brief Unmanage a window and remove it from State object.
+ * @param window_id
+ * @param state
+ */
 void unmanage(const uint32_t window_id, State& state);
 
+/**
+ * @brief Send WM_TAKE_FOCUS protocol to a window
+ * @param window_id
+ */
 void send_take_focus(const uint32_t window_id) noexcept;
 
+/**
+ * @brief Set input focus to window
+ * @param window_id
+ */
 void set_input_focus(const uint32_t window_id) noexcept;
 
-
+/**
+ * @brief Change window property
+ * @tparam T Data type
+ * @tparam N Data size
+ * @param wind window id
+ * @param mode window::prop
+ * @param prop property to change
+ * @param type property type
+ * @param data
+ */
 template <typename T, size_t N>
 inline void change_property(const uint32_t     wind,
                             const window::prop mode,
@@ -78,12 +143,22 @@ inline void change_property(const uint32_t     wind,
                             const uint32_t     type,
                             std::span<T, N>    data) noexcept
 {
-    constexpr int format = prop_size<T>();
+    constexpr int format = detail::prop_size<T>();
     xcb_change_property(
         X11::detail::conn(), static_cast<uint8_t>(mode),
         wind, prop, type, format, data.size(), data.data());
 }
 
+/**
+ * @brief Change window property, throws if fail
+ * @tparam T Data type
+ * @tparam N Data size
+ * @param wind window id
+ * @param mode window::prop
+ * @param prop property to change
+ * @param type property type
+ * @param data
+ */
 template <typename T, size_t N>
 inline void change_property_c(const uint32_t     wind,
                               const window::prop mode,
@@ -91,22 +166,38 @@ inline void change_property_c(const uint32_t     wind,
                               const uint32_t     type,
                               std::span<T, N>    data)
 {
-    constexpr int format = prop_size<T>();
-    detail::check_error(xcb_change_property_checked(
+    constexpr int format = detail::prop_size<T>();
+    X11::detail::check_error(xcb_change_property_checked(
         X11::detail::conn(), static_cast<uint8_t>(mode),
         wind, prop, type, format, data.size(), data.data()));
 }
 
+/**
+ * @brief Change window attributes
+ * @tparam T Data type
+ * @tparam N Data size
+ * @param window_id
+ * @param mask attribute mask
+ * @param data
+ */
 template <typename T, size_t N>
 inline void change_attributes(const uint32_t window_id, const uint32_t mask, std::span<T, N> data) noexcept
 {
     xcb_change_window_attributes(X11::detail::conn(), window_id, mask, data.data());
 }
 
+/**
+ * @brief Change window attributes, throws if fail
+ * @tparam T Data type
+ * @tparam N Data size
+ * @param window_id
+ * @param mask attribute mask
+ * @param data
+ */
 template <typename T, size_t N>
 inline void change_attributes_c(const uint32_t window_id, const uint32_t mask, std::span<T, N> data)
 {
-    detail::check_error(xcb_change_window_attributes_checked(X11::detail::conn(), window_id, mask, data.data()));
+    X11::detail::check_error(xcb_change_window_attributes_checked(X11::detail::conn(), window_id, mask, data.data()));
 }
 
 } // namespace window

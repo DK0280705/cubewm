@@ -1,11 +1,7 @@
 #include "../connection.h"
 #include "../helper.h"
-#include "x11.h"
-#include <X11/Xlib-xcb.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_aux.h>
-#include <gdk/gdk.h>
-#include <gdk/x11/gdkx.h>
 
 namespace X11 {
 
@@ -16,15 +12,14 @@ Connection::Connection()
 {
     assert_runtime<Connection_error>(!xcb_connection_has_error(_conn), "Failed to start connection");
     assert_runtime<Connection_error>(_screen, "Failed to get display screen");
-    // Init X11 first, so we can call the xcb functions.
-    X11::init(*this);
 }
 
 Connection::~Connection()
 {
     xcb_disconnect(_conn);
 }
-}
+
+} // namespace X11
 
 uint32_t root_window_id(const X11::Connection& conn) noexcept
 {
