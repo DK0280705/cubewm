@@ -1,11 +1,9 @@
 #pragma once
-#include "helper.h"
-#include <concepts>
-#include <cstddef>
-#include <functional>
+#include "error.h"
+#include "helper/pointer_wrapper.h"
+#include "helper/std_extension.h"
 #include <list>
-#include <ranges>
-#include <typeinfo>
+
 
 template <typename T>
 class Node;
@@ -37,7 +35,7 @@ protected:
     bool _is_root = false;
     bool _is_leaf = false;
 public:
-    DEFINE_POINTER_ITERATOR_WRAPPER(_children)
+    HELPER_POINTER_ITERATOR_WRAPPER(_children)
 
     inline bool empty() const noexcept
     { return _children.empty(); }
@@ -45,13 +43,13 @@ public:
     inline size_t size() const noexcept
     { return _children.size(); }
 
-    inline std::optref<Node<T>> front() const noexcept
+    inline std::optref<Node<T>> front()  const noexcept
     { return _children.front() ? std::optref<Node<T>>(*_children.front()) : std::nullopt; }
 
-    inline std::optref<Node<T>> back() const noexcept
+    inline std::optref<Node<T>> back()   const noexcept
     { return _children.back() ? std::optref<Node<T>>(*_children.back()) : std::nullopt; }
 
-    inline std::optref<Node<T>> parent()const noexcept
+    inline std::optref<Node<T>> parent() const noexcept
     { return (_parent) ? std::optref<Node<T>>(*_parent) : std::nullopt; }
 
     template <std::derived_from<Root<T>> R = Root<T>>

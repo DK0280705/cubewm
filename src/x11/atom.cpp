@@ -1,7 +1,9 @@
 #include "atom.h"
+#include "connection.h"
 #include "x11.h"
-#include "../helper.h"
-#include "../connection.h"
+
+#include "../helper/memory.h"
+
 #include <cstring>
 #include <xcb/xcb.h>
 #include <xcb/xcb_atom.h>
@@ -47,7 +49,7 @@ std::string name(const xcb_atom_t atom)
             X11::detail::conn(),
             xcb_get_atom_name(X11::detail::conn(), atom),
             NULL));
-
+    if (!reply) throw std::runtime_error("Failed to get atom name");
     return xcb_get_atom_name_name(reply.get());
 }
 }

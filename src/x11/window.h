@@ -1,8 +1,10 @@
 #pragma once
 #include "x11.h"
 #include "../window.h"
-#include "../helper.h"
+#include "../helper/memory.h"
+
 #include <span>
+#include <vector>
 #include <xcb/xcb_icccm.h>
 
 // Forward declarations
@@ -11,9 +13,9 @@ class Workspace;
 
 struct Window::X11_property
 {
-    uint32_t              type;
+    uint32_t              type{};
     std::string           role;
-    xcb_icccm_wm_hints_t  wm_hints;
+    xcb_icccm_wm_hints_t  wm_hints{};
     std::vector<uint32_t> protocols;
     struct WM_class
     {
@@ -28,7 +30,7 @@ namespace detail {
 // i dunno, let the compiler guess
 // Not very important, keep it one line
 template <typename T>
-static consteval int prop_size()
+static consteval auto prop_size() -> int
 { if constexpr (std::is_pointer<T>()) return sizeof(T); else return sizeof(T) * 8; }
 } // namespace detail
 
@@ -41,12 +43,12 @@ class Window : public ::Window
     void _update_rect() noexcept override;
 
 public:
-    Window(Index id);
+    explicit Window(Index id);
 
     void focus()   override;
     void unfocus() override;
 
-    ~Window();
+    ~Window() noexcept override;
 };
 
 namespace window {
@@ -63,7 +65,7 @@ enum class prop : uint8_t
  * @param window_id
  * @return memory::c_owner<xcb_get_window_attributes_reply_t>
  */
-auto get_attribute(const uint32_t window_id) noexcept
+auto get_attribute(uint32_t window_id) noexcept
     -> memory::c_owner<xcb_get_window_attributes_reply_t>;
 
 /**
@@ -71,7 +73,7 @@ auto get_attribute(const uint32_t window_id) noexcept
  * @param window_id
  * @return memory::c_owner<xcb_get_geometry_reply_t>
  */
-auto get_geometry(const uint32_t window_id) noexcept
+auto get_geometry(uint32_t window_id) noexcept
     -> memory::c_owner<xcb_get_geometry_reply_t>;
 
 /**
@@ -79,21 +81,21 @@ auto get_geometry(const uint32_t window_id) noexcept
  * @param window_id
  * @param rect
  */
-void configure_rect(const uint32_t window_id, const Vector2D& rect) noexcept;
+void configure_rect(uint32_t window_id, const Vector2D& rect) noexcept;
 
 /**
  * @brief Grab all keys for an X11 window
  * @param window_id
  * @param state
  */
-void grab_keys(const uint32_t window_id, const State& state) noexcept;
+void grab_keys(uint32_t window_id, const State& state) noexcept;
 
 /**
  * @brief Grab all buttons for an X11 window.
  * You might want to use it only for root window
  * @param window_id
  */
-void grab_buttons(const uint32_t window_id) noexcept;
+void grab_buttons(uint32_t window_id) noexcept;
 
 /**
  * @brief Load all X11 Windows into State object.
@@ -106,25 +108,25 @@ void load_all(State& state);
  * @param window_id
  * @param state
  */
-void manage(const uint32_t window_id, State& state);
+void manage(uint32_t window_id, State& state);
 /**
  * @brief Unmanage a window and remove it from State object.
  * @param window_id
  * @param state
  */
-void unmanage(const uint32_t window_id, State& state);
+void unmanage(uint32_t window_id, State& state);
 
 /**
  * @brief Send WM_TAKE_FOCUS protocol to a window
  * @param window_id
  */
-void send_take_focus(const uint32_t window_id) noexcept;
+void send_take_focus(uint32_t window_id) noexcept;
 
 /**
  * @brief Set input focus to window
  * @param window_id
  */
-void set_input_focus(const uint32_t window_id) noexcept;
+void set_input_focus(uint32_t window_id) noexcept;
 
 /**
  * @brief Change window property

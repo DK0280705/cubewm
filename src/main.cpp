@@ -6,7 +6,6 @@
 
 #include "connection.h"
 #include "config.h"
-#include "state.h"
 #include "logger.h"
 #include <array>
 #include <getopt.h>

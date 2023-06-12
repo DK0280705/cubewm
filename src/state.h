@@ -1,12 +1,15 @@
 #pragma once
 #include "binding.h"
 #include "connection.h"
-#include "helper.h"
+#include "helper/mixins.h"
 #include "manager.h"
 #include "monitor.h"
 #include "workspace.h"
 #include "window.h"
-#include <type_traits>
+
+namespace X11 {
+class Server;
+} // namespace X11
 
 class Timestamp
 {
@@ -20,11 +23,11 @@ public:
     { return _time; }
 };
 
-class State final : public Init_once<State>
-                  , public Observable<State>
+class State final : public helper::Init_once<State>
+                  , public helper::Observable<State>
 {
 public:
-    enum observable : uint8_t
+    enum signals : uint8_t
     {
         current_workspace_update,
         current_monitor_update,
@@ -59,7 +62,7 @@ public:
         , _wor_mgr(Manager<Workspace>::init())
     {}
 
-    static State& init(Connection& conn);
+    static auto init(Connection& conn, X11::Server&) -> State&;
 
     ~State() noexcept
     {
@@ -70,29 +73,29 @@ public:
     }
 
 public:
-    constexpr auto conn()       const noexcept -> const Connection&
+    inline constexpr auto conn()       const noexcept -> const Connection&
     { return _conn; }
-    constexpr auto bindings()   const noexcept -> Manager<Binding>&
+    inline constexpr auto bindings()   const noexcept -> Manager<Binding>&
     { return _bin_mgr; }
-    constexpr auto windows()    const noexcept -> Manager<Window>&
+    inline constexpr auto windows()    const noexcept -> Manager<Window>&
     { return _win_mgr; }
-    constexpr auto monitors()   const noexcept -> Manager<Monitor>&
+    inline constexpr auto monitors()   const noexcept -> Manager<Monitor>&
     { return _mon_mgr; }
-    constexpr auto workspaces() const noexcept -> Manager<Workspace>&
+    inline constexpr auto workspaces() const noexcept -> Manager<Workspace>&
     { return _wor_mgr; }
 
     inline void current_workspace(Workspace& workspace)
     {
         assert(_wor_mgr.contains(workspace.index()));
         _current_workspace = &workspace;
-        notify<observable::current_workspace_update>();
+        notify<signals::current_workspace_update>();
     }
 
     inline void current_monitor(Monitor& monitor)
     {
         assert(_mon_mgr.contains(monitor.index()));
         _current_monitor = &monitor;
-        notify<observable::current_monitor_update>();
+        notify<signals::current_monitor_update>();
     }
 
     inline auto current_workspace() const noexcept -> Workspace&
@@ -106,52 +109,54 @@ public:
     inline auto manage_window(const uint32_t window_id) -> Window_t&
     {
         Window_t& window = _win_mgr.manage<Window_t>(window_id);
-        move_to_workspace(window, current_workspace());
-        add_window(current_workspace().window_list(), window);
+        window::move_to_workspace(window, current_workspace());
+        window::add_window(current_workspace().window_list(), window);
         return window;
     }
 
     inline void unmanage_window(const uint32_t window_id)
     {
         Window& window = _win_mgr.at(window_id);
-        remove_window(window.root<Workspace>().window_list(), window);
-        purge_and_reconfigure(window);
+        window::remove_window(window.root<Workspace>().window_list(), window);
+        window::purge_and_reconfigure(window);
         _win_mgr.unmanage(window.index());
     }
 
 private:
-    template<observable obs>
-    inline constexpr const auto& _dispatch_observable_const() const noexcept
+    template<signals sig>
+    static inline constexpr const auto& _dispatch_observable(const State& state) noexcept
     {
-        if constexpr (obs == current_workspace_update
-                   || obs == current_monitor_update)
-            return static_cast<const Observable<State>&>(*this);
-        else if constexpr(obs == window_manager_update)
-            return static_cast<const Observable<Manager<Window>>&>(_win_mgr);
-        else if constexpr(obs == monitor_manager_update)
-            return static_cast<const Observable<Manager<Monitor>>&>(_mon_mgr);
-        else if constexpr(obs == workspace_manager_update)
-            return static_cast<const Observable<Manager<Workspace>>&>(_wor_mgr);
+        if constexpr (sig == current_workspace_update
+                   || sig == current_monitor_update)
+            return static_cast<const Observable<State>&>(state);
+        else if constexpr(sig == window_manager_update)
+            return static_cast<const Observable<Manager<Window>>&>(state.windows());
+        else if constexpr(sig == monitor_manager_update)
+            return static_cast<const Observable<Manager<Monitor>>&>(state.monitors());
+        else if constexpr(sig == workspace_manager_update)
+            return static_cast<const Observable<Manager<Workspace>>&>(state.workspaces());
     }
 
-    template <observable obs>
-    inline constexpr auto& _dispatch_observable() noexcept
+    template <signals sig>
+    static inline constexpr auto& _dispatch_observable(State& state) noexcept
     {
-        const auto& o = _dispatch_observable_const<obs>();
+        const auto& o = State::_dispatch_observable<sig>(static_cast<const State&>(state));
         return const_cast<typename std::remove_cvref<decltype(o)>::type&>(o);
     }
 
 public:
-    template<observable obs, typename Observer>
+    template<signals sig, typename Observer>
     constexpr void connect(Observer observer) noexcept
     {
-        _dispatch_observable<obs>().connect(obs, observer);
+        auto& o = State::_dispatch_observable<sig>(*this);
+        o.connect(sig, observer);
     }
 
-    template <observable obs>
+    template <signals sig>
     constexpr void notify() const
     {
-        _dispatch_observable_const<obs>().notify(obs);
+        const auto& o = State::_dispatch_observable<sig>(*this);
+        o.notify(sig);
     }
 
     inline void notify_all() const

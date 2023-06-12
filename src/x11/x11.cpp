@@ -29,7 +29,7 @@ static void _acquire_first_timestamp(const Connection& conn)
                             std::span<const uint32_t, 0>{});
     xcb_ungrab_server(conn);
 
-    xcb_flush(conn);
+    conn.flush();
 
     xcb_generic_event_t* event = nullptr;
     while ((event = xcb_wait_for_event(conn)))
@@ -191,7 +191,7 @@ const Connection& conn() noexcept
 unsigned int root_window_id() noexcept
 {
     assert_debug(_pconnection, "X11 is not initialized yet");
-    return ::root_window_id(*_pconnection);
+    return X11::root_window_id(*_pconnection);
 }
 
 unsigned int main_window_id() noexcept

@@ -1,5 +1,7 @@
 #include "state.h"
 #include "keybind.h"
+#include "x11/monitor.h"
+#include "x11/window.h"
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 uint32_t Timestamp::_time = 0;
@@ -27,20 +29,27 @@ static void _assign_default_bindings(Manager<Binding>& manager)
     manager.manage<Change_layout_type>({XKB_KEY_h, mod_mask::mod4}, Layout::Type::Horizontal);
 }
 
-State& State::init(Connection& conn)
+auto State::init(Connection& conn, X11::Server&) -> State&
 {
     State& state = Init_once<State>::init(conn);
-    // Set default workspace, ensure it never null.
-    state._current_workspace = &state._wor_mgr.manage(0);
-    // Set default monitor, at worst, atleast it handles one monitor.
-    state._current_monitor = &state._mon_mgr.manage(0);
 
-    // Add current workspace to current monitor, maintaining tree.
-    state._current_monitor->add(*state._current_workspace);
-    // Set rect for basic functionality. Automatically update its children.
-    state._current_monitor->rect(Vector2D{{0, 0}, {640, 480}});
+    // First, load all monitors.
+    X11::monitor::load_all(state);
+    // Set current monitor to the first monitor.
+    state.current_monitor(state.monitors().at(0));
+    // Set default workspace.
+    state.current_workspace(state.workspaces().manage(0));
+    // Set current monitor children to the default workspace
+    state.current_monitor().add(state.current_workspace());
+    // Update rect to update workspace rect.
+    state.current_monitor().update_rect();
 
-    // fill binding manager
+    // Second, load all windows.
+    X11::window::load_all(state);
+    // Focus the last window in the current workspace.
+    window::focus_last(state.current_workspace().window_list());
+
+    // Third, fill the binding manager
     _assign_default_bindings(state._bin_mgr);
 
     return state;

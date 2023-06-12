@@ -1,6 +1,9 @@
 #include "extension.h"
-#include "../connection.h"
+#include "connection.h"
+
 #include "../logger.h"
+#include "../helper/memory.h"
+
 #include <xcb/randr.h>
 #include <xcb/shape.h>
 // C++ unfriendly
@@ -9,20 +12,32 @@
 #undef explicit
 
 
-namespace X11 {
-namespace extension {
+namespace X11::extension {
 
-Extension xkb(0, false);
-Extension xrandr(0, false);
-Extension xshape(0, false);
+static XKB_extension    _xkb;
+static Xrandr_extension _xrandr;
+static Xshape_extension _xshape;
 
-static Extension _init_xkb(const Connection& conn)
+auto xkb() noexcept -> const XKB_extension&
+{
+    return _xkb;
+}
+auto xrandr() noexcept -> const Xrandr_extension&
+{
+    return _xrandr;
+}
+auto xshape() noexcept -> const Xshape_extension&
+{
+    return _xshape;
+}
+
+static auto _init_xkb(const Connection& conn) -> XKB_extension
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_xkb_id);
 
     if (!reply->present) {
         logger::error("xkb is not present on this server");
-        return Extension(0, false);
+        return {};
     }
 
     // Meh, can we simplify this?
@@ -38,7 +53,7 @@ static Extension _init_xkb(const Connection& conn)
                               XCB_XKB_EVENT_TYPE_NEW_KEYBOARD_NOTIFY,
                           0xff,
                           0xff,
-                          NULL);
+                          nullptr);
 
     const uint32_t flags = XCB_XKB_PER_CLIENT_FLAG_GRABS_USE_XKB_STATE |
                            XCB_XKB_PER_CLIENT_FLAG_LOOKUP_STATE_WHEN_GRABBED |
@@ -47,20 +62,20 @@ static Extension _init_xkb(const Connection& conn)
         conn,
         xcb_xkb_per_client_flags(
             conn, XCB_XKB_ID_USE_CORE_KBD, flags, flags, 0, 0, 0),
-        NULL));
+        nullptr));
 
     if (!client_flags || !(client_flags->value & flags))
         logger::error("Could not get xkb client flags");
 
-    return Extension(reply->first_event, reply->present);
+    return {reply->first_event, (bool)reply->present};
 }
 
-static Extension _init_xrandr(const Connection& conn)
+static auto _init_xrandr(const Connection& conn) -> Xrandr_extension
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_randr_id);
     if (!reply->present) {
         logger::error("xrandr is not present on this server");
-        return Extension(0, false);
+        return {};
     }
 
     xcb_generic_error_t* err = nullptr;
@@ -73,38 +88,45 @@ static Extension _init_xrandr(const Connection& conn)
 
     if (err) {
         logger::error("Could not query RandR version: err code {}", err->error_code);
-        return Extension(0, false);
+        return {};
     }
 
-    if (version->major_version < 1 || version->minor_version < 5) {
-        logger::error("Must have RandR version 1.5+");
-        return Extension(0, false);
+    if (version->major_version < 1 || version->minor_version < 2) {
+        logger::error("Must have RandR version 1.2+");
+        return {};
     }
 
-    return Extension(true, reply->first_event);
+    bool have_randr_13 = version->minor_version >= 3;
+    bool have_randr_15 =
+#if XCB_RANDR_MAJOR_VERSION > 1 || XCB_RANDR_MINOR_VERSION >= 5
+        version->minor_version >= 5;
+#else
+        false;
+#endif
+
+    return {{reply->first_event, true}, have_randr_13, have_randr_15};
 }
 
-static Extension _init_xshape(const Connection& conn)
+static auto _init_xshape(const Connection& conn) -> Xshape_extension
 {
     const auto* reply = xcb_get_extension_data(conn, &xcb_shape_id);
 
     if (!reply->present) {
         logger::error("xshape is not present on this server");
-        return Extension(0, false);
+        return {0, false};
     }
 
     auto version = memory::c_own(xcb_shape_query_version_reply(
-        conn, xcb_shape_query_version(conn), NULL));
+        conn, xcb_shape_query_version(conn), nullptr));
 
-    return Extension(reply->first_event, version && version->minor_version >= 1);
+    return {reply->first_event, version && version->minor_version >= 1};
 }
 
 void init(const Connection& conn)
 {
-    xkb    = _init_xkb(conn);
-    xrandr = _init_xrandr(conn);
-    xshape = _init_xshape(conn);
+    _xkb    = _init_xkb(conn);
+    _xrandr = _init_xrandr(conn);
+    _xshape = _init_xshape(conn);
 }
 
-}
-}
+} // namespace X11::extension

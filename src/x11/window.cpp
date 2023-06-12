@@ -1,21 +1,18 @@
-#include "../state.h"
-#include "../logger.h"
-#include "../config.h"
+#include "window.h"
 #include "atom.h"
 #include "constant.h"
+#include "ewmh.h"
 #include "extension.h"
 #include "xkb.h"
 #include "frame.h"
-#include "window.h"
 #include "x11.h"
 
+#include "../logger.h"
+
 #include <limits>
-#include <algorithm>
-#include <new>
 #include <xcb/shape.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xproto.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
 
 namespace X11 {
 
@@ -130,7 +127,7 @@ static void fetch_protocols(const xcb_window_t window_id, std::vector<uint32_t>&
             &proto,
             nullptr))
         return;
-    auto _ = finally([&]{
+    auto _ = memory::finally([&]{
         xcb_icccm_get_wm_protocols_reply_wipe(&proto);
     });
     protocols = { proto.atoms, proto.atoms + proto.atoms_len };
@@ -155,7 +152,7 @@ Window::Window(Index id)
     // Get window events
     const uint32_t mask_values[] = { XCB_GRAVITY_NORTH_WEST, constant::CHILD_EVENT_MASK };
     window::change_attributes(id, XCB_CW_WIN_GRAVITY | XCB_CW_EVENT_MASK, std::span{mask_values});
-    if (extension::xshape.supported()) {
+    if (extension::xshape().is_supported) {
         xcb_shape_select_input(X11::detail::conn(), id, XCB_SHAPE_NOTIFY);
     }
 
@@ -169,9 +166,6 @@ Window::Window(Index id)
     window::detail::init_xprop(id, xprop());
     _do_not_focus = !xprop().wm_hints.input
                  && std::ranges::contains(xprop().protocols, X11::atom::WM_TAKE_FOCUS);
-
-    // Flush the toilet
-    xcb_flush(X11::detail::conn());
 }
 
 void Window::_update_rect() noexcept
@@ -188,6 +182,7 @@ void Window::focus()
         logger::debug("Window focus -> setting input focus to window : {:#x}", index());
         window::set_input_focus(index());
     }
+    X11::ewmh::update_active_window(index());
     _focused = true;
 }
 
@@ -198,7 +193,7 @@ void Window::unfocus()
     _focused = false;
 }
 
-Window::~Window()
+Window::~Window() noexcept
 {
     delete _xprop;
 }
@@ -215,7 +210,7 @@ auto get_attribute(const uint32_t window_id) noexcept
         xcb_get_window_attributes_reply(
             X11::detail::conn(),
             xcb_get_window_attributes(X11::detail::conn(), window_id),
-        0));
+        nullptr));
 }
 
 auto get_geometry(const uint32_t window_id) noexcept
@@ -225,7 +220,7 @@ auto get_geometry(const uint32_t window_id) noexcept
         xcb_get_geometry_reply(
             X11::detail::conn(),
             xcb_get_geometry(X11::detail::conn(), window_id),
-        0));
+        nullptr));
 }
 
 void configure_rect(const uint32_t window_id, const Vector2D& rect) noexcept
@@ -248,7 +243,7 @@ void configure_rect(const uint32_t window_id, const Vector2D& rect) noexcept
 void grab_keys(const uint32_t window_id, const State& state) noexcept
 {
     for (const auto& [keybind, _] : state.bindings()) {
-        uint8_t keycode = keysym_to_keycode(keybind.keysym);
+        uint8_t keycode = X11::keysym_to_keycode(state.conn(), keybind.keysym);
         logger::debug("Grab keys -> keysym: {}, keycode: {}", keybind.keysym, keycode);
         xcb_grab_key(X11::detail::conn(), 0, window_id, keybind.modifiers, keycode,
                      XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
@@ -275,14 +270,15 @@ static auto _fetch_all()
 {
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::detail::conn(),
-            xcb_query_tree(X11::detail::conn(), X11::detail::root_window_id()), 0));
+            xcb_query_tree(X11::detail::conn(), X11::detail::root_window_id()), nullptr));
     xcb_window_t* window_ids = xcb_query_tree_children(query.get());
-    return std::pair(
+    return {
         std::move(query),
-        std::span{window_ids, (uint64_t)xcb_query_tree_children_length(query.get())});
+        std::span{window_ids, (uint64_t)xcb_query_tree_children_length(query.get())}
+    };
 }
 
-static uint32_t _fetch_workspace(const uint32_t window_id)
+static auto _fetch_workspace(const uint32_t window_id) -> uint32_t
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
@@ -291,13 +287,13 @@ static uint32_t _fetch_workspace(const uint32_t window_id)
                              X11::atom::_NET_WM_DESKTOP,
                              XCB_GET_PROPERTY_TYPE_ANY, 0,
                              std::numeric_limits<uint32_t>::max()),
-            0));
-    assert_runtime(!!prop, "Cannot get workspace");
+            nullptr));
+    assert_runtime((bool)prop, "Cannot get workspace");
     if (xcb_get_property_value_length(prop.get()) == 0) return 0;
     return reinterpret_cast<uint32_t*>(xcb_get_property_value(prop.get()))[0];
 }
 
-static Workspace& _load_workspace(const uint32_t window_id, State& state)
+static auto _load_workspace(const uint32_t window_id, State& state) -> Workspace&
 {
     const auto ws_id = _fetch_workspace(window_id);
     auto& wor_mgr    = state.workspaces();

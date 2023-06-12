@@ -1,29 +1,7 @@
 #pragma once
 #include "layout.h"
-#include "helper.h"
-#include "managed.h"
-
-struct place;
-class Window;
-
-class Window_list
-{
-    std::vector<Window*> _list;
-
-public:
-    inline std::optref<Window> last() const noexcept
-    { return _list.empty() ? std::nullopt : std::optref<Window>(*_list.back()); }
-
-    inline bool empty() const noexcept
-    { return _list.empty(); }
-
-    DEFINE_POINTER_ITERATOR_WRAPPER(_list);
-
-public:
-    void add(Window& window);
-    void focus(const_iterator it);
-    void remove(const_iterator it);
-};
+#include "window.h"
+#include "helper/pointer_wrapper.h"
 
 class Workspace : public Root<Container>
                 , public Managed<unsigned int>
@@ -34,7 +12,7 @@ class Workspace : public Root<Container>
     Layout* _focused_layout;
 
 public:
-    Workspace(const Index id);
+    explicit Workspace(Index id);
 
     inline auto name() const noexcept -> std::string_view
     { return _name; }
@@ -49,6 +27,20 @@ public:
     inline void focused_layout(Layout& layout) noexcept
     { _focused_layout = &layout; }
 
+    inline auto tiling_layout() const -> Layout&
+    {
+        if (const auto& lref = this->back()) {
+            return lref->get().get<Layout>();
+        } else throw Existence_error("Tiling layout not exist");
+    }
+
+    inline auto floating_layout() const noexcept -> Layout&
+    {
+        // Floating layout is initialised at constructor
+        assert(this->front());
+        return this->front()->get().get<Layout>();
+    }
+
 public:
     void update_rect() noexcept override;
 
@@ -57,41 +49,3 @@ public:
         for (const auto& c : *this) delete &c;
     }
 };
-
-/**
- * @brief Add window to window list.
- * Performs additional debug checks
- * @param window_list
- * @param window
- */
-void add_window(Window_list& window_list, Window& window);
-
-/**
- * @brief Focus a window from window list.
- * Performs additional debug checks
- * @param window_list
- * @param window
- */
-void focus_window(Window_list& window_list, Window& window);
-
-/**
- * @brief Focus last window in a window list.
- * Do nothing if it's empty.
- * @param window_list
- */
-void focus_last(Window_list& window_list);
-
-/**
- * @brief Try to focus a window from its window list.
- * Performs additional debug checks
- * @param window
- */
-void try_focus_window(Window& window);
-
-/**
- * @brief Remove window from window list.
- * Performs additional debug checks
- * @param window_list
- * @param window
- */
-void remove_window(Window_list& window_list, Window& window);

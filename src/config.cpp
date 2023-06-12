@@ -1,8 +1,8 @@
 namespace config
 {
-bool replace_wm = false;
+bool replace_wm      = false;
 bool enable_xinerama = false;
-bool enable_randr = false;
+bool enable_randr    = true;
 unsigned border_size = 2;
-unsigned gap_size = 4;
+unsigned gap_size    = 4;
 }

@@ -4,3 +4,4 @@ release
 debug
 compile_commands.json
 .swp
+.idea

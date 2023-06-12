@@ -4,7 +4,7 @@
  * Maybe extended with Wayland compositor
  * I'll give it a try
  */
-#include "helper.h"
+#include "helper/mixins.h"
 #include "x11/connection.h"
 #ifdef USE_WAYLAND
 #include "wayland/connection.h"
@@ -14,7 +14,7 @@ class Connection : public X11::Connection
 #ifdef USE_WAYLAND
                  , public Wayland::Connection
 #endif
-                 , public Init_once<Connection>
+                 , public helper::Init_once<Connection>
 {
 public:
     Connection()
@@ -24,5 +24,3 @@ public:
 #endif
     {}
 };
-
-uint32_t root_window_id(const X11::Connection& conn) noexcept;

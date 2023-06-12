@@ -1,5 +1,5 @@
 #pragma once
-#include "../connection.h"
+#include "connection.h"
 #include <xcb/xproto.h>
 /**
  * Separate X11 specifics from the actual window manager
@@ -13,11 +13,11 @@ namespace detail {
 // Now let's agree to not to use it outside namespace
 // Discouraged for usage, use State::conn() instead.
 // Only use if we desperately can't use State.
-const Connection& conn() noexcept;
+auto conn() noexcept -> const Connection&;
 // This is root window id from the x11 screen struct.
-unsigned int root_window_id() noexcept;
+auto root_window_id() noexcept -> unsigned int;
 // This is a "cubewm" window we created under root window.
-unsigned int main_window_id() noexcept;
+auto main_window_id() noexcept -> unsigned int;
 // Check for void cookie error return, if exists throws.
 void check_error(const xcb_void_cookie_t& cookie);
 }

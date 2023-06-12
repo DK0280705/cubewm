@@ -81,7 +81,7 @@ void handle(State& state, const Event& event)
     SUPPORTED_EVENTS
     #undef xmacro
     default:
-        if (extension::xkb.supported() && type == extension::xkb.event_base())
+        if (extension::xkb().is_supported && type == extension::xkb().base_event)
             _handle_xkb(state, event);
         else
             logger::debug("Event handler -> Unhandled event type: {}", type);
@@ -127,10 +127,10 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
         logger::debug("Map request -> remapping managed window: {:#x}", event.window);
         ::Window& window = winref->get();
         xcb_map_window(state.conn(), event.window);
-        focus_window(window.root<Workspace>().window_list(), window);
+        ::window::focus_window(window.root<Workspace>().window_list(), window);
     } else {
         window::manage(event.window, state);
-        focus_last(state.current_workspace().window_list());
+        ::window::focus_last(state.current_workspace().window_list());
     }
 }
 
@@ -143,7 +143,7 @@ void _on_enter_notify(State& state, const xcb_enter_notify_event_t& event)
     }
     if (const auto& winref = state.windows()[event.event]) {
         logger::debug("Enter notify -> window is managed");
-        try_focus_window(winref->get());
+        ::window::try_focus_window(winref->get());
     }
 }
 
@@ -163,10 +163,10 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
     // Update focus if root window received focus in
     if (event.event == root_window_id(state.conn())) {
         logger::debug("Focus in -> got root window id");
-        focus_last(state.current_workspace().window_list());
+        ::window::focus_last(state.current_workspace().window_list());
     } else if (const auto& winref = win_mgr[event.event]) {
         logger::debug("Focus in -> trying to focus window id: {:#x}", winref->get().index());
-        try_focus_window(winref->get());
+        ::window::try_focus_window(winref->get());
     }
 }
 
@@ -237,7 +237,7 @@ void _on_button_press(State& state, const xcb_button_press_event_t& event)
     if (event.child != XCB_NONE) {
         if (const auto& winref = state.windows()[event.child]) {
             logger::debug("Button press -> found child window: {:#x}", event.child);
-            try_focus_window(winref->get());
+            ::window::try_focus_window(winref->get());
         }
     }
     xcb_allow_events(state.conn(), XCB_ALLOW_REPLAY_POINTER, event.time);
@@ -250,7 +250,7 @@ void _on_button_release(State&, const xcb_button_release_event_t& event)
 
 void _on_key_press(State& state, const xcb_key_press_event_t& event)
 {
-    Keybind keybind = create_keybind(Server::instance().xkb(), event.detail, event.state);
+    Keybind keybind = XKB::create_keybind(event.detail, event.state);
 #ifndef NDEBUG
     {
         char keysym_name[32];
@@ -267,7 +267,7 @@ void _on_key_press(State& state, const xcb_key_press_event_t& event)
 void _on_key_release(State&, const xcb_key_release_event_t& event)
 {
 #ifndef NDEBUG
-    Keybind keybind = create_keybind(Server::instance().xkb(), event.detail, event.state);
+    Keybind keybind = XKB::create_keybind(event.detail, event.state);
     char keysym_name[32];
     xkb_keysym_get_name(keybind.keysym, keysym_name, sizeof(keysym_name));
     logger::debug("Key press -> key: {}, mod: {}", keysym_name, keybind.modifiers);
@@ -285,23 +285,23 @@ void _on_selection_clear(State&, const xcb_selection_clear_event_t& event)
         logger::debug("Selection clear -> unknown selection: {}", event.selection);
         return;
     }
-    Server::instance().stop();
+    ::Server::instance().stop();
 }
 
 void _on_xkb_new_keyboard_notify(State&, const xcb_xkb_new_keyboard_notify_event_t& event)
 {
     if (event.changed & XCB_XKB_NKN_DETAIL_KEYCODES)
-        Server::instance().xkb().update_keymap();
+        XKB::instance().update_keymap();
 }
 
 void _on_xkb_map_notify(State&, const xcb_xkb_map_notify_event_t&)
 {
-    Server::instance().xkb().update_keymap();
+    XKB::instance().update_keymap();
 }
 
 void _on_xkb_state_notify(State& state, const xcb_xkb_state_notify_event_t& event)
 {
-    xkb_state_update_mask(Server::instance().xkb().state(),
+    xkb_state_update_mask(XKB::instance().state(),
                           event.baseMods,
                           event.latchedMods,
                           event.lockedMods,

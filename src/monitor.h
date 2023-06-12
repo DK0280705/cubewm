@@ -1,15 +1,23 @@
 #pragma once
-#include "helper.h"
+#include "helper/pointer_wrapper.h"
 #include "managed.h"
-#include "workspace.h"
+#include "container.h"
+#include <vector>
+#include <ranges>
+
+class Workspace;
 
 class Monitor : public Container
               , public Managed<unsigned int>
 {
+    std::string             _name;
     std::vector<Workspace*> _workspaces;
 
 public:
-    DEFINE_POINTER_ITERATOR_WRAPPER(_workspaces);
+    HELPER_POINTER_ITERATOR_WRAPPER(_workspaces);
+
+    inline auto name() const noexcept -> std::string_view
+    { return _name; }
 
     inline void add(Workspace& ws)
     { _workspaces.push_back(&ws); }
@@ -18,12 +26,12 @@ public:
     { _workspaces.erase(std::ranges::find(_workspaces, &ws)); }
 
 public:
-    Monitor(const Index id) noexcept
+    explicit Monitor(const Index id, const std::string& name) noexcept
         : Managed(id)
+        , _name(name)
     {}
 
     void update_rect() noexcept override;
 
-    virtual ~Monitor()
-    { for (const auto& ws : _workspaces) delete ws; }
+    virtual ~Monitor() noexcept;
 };

@@ -1,5 +1,6 @@
 #include "monitor.h"
 #include "logger.h"
+#include "workspace.h"
 
 void Monitor::update_rect() noexcept
 {
@@ -9,4 +10,9 @@ void Monitor::update_rect() noexcept
     // Should count for dockarea rect
     for (auto& ws : *this)
         ws.rect(rect);
+}
+
+Monitor::~Monitor() noexcept
+{
+    { for (const auto& ws : _workspaces) delete ws; }
 }

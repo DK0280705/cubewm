@@ -2,15 +2,15 @@
 #include "state.h"
 #include <csignal>
 
-Server* Server::_instance = 0;
+Server* Server::_instance = nullptr;
 
 static void _catch_signal(int) noexcept
 {
     Server::instance().stop();
 }
 
-Server::Server(Connection& conn) noexcept
-    : _state(State::init(conn))
+Server::Server(State& state) noexcept
+    : _state(state)
     , _running(false)
 {
     // Handle exit
@@ -21,12 +21,10 @@ Server::Server(Connection& conn) noexcept
     std::signal(SIGCHLD, [](int){});
 }
 
-Server& Server::instance()
+auto Server::instance() -> Server&
 {
     assert(_instance);
     return *_instance;
 }
 
-Server::~Server() noexcept
-{
-}
+Server::~Server() noexcept = default;

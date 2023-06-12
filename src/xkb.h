@@ -8,15 +8,18 @@ class Connection;
 class XKB
 {
 protected:
-    const Connection& _conn;
-    xkb_context*      _ctx;
-    xkb_keymap*       _keymap;
-    xkb_state*        _state;
+    Connection&  _conn;
+    xkb_context* _ctx;
+    xkb_keymap*  _keymap;
+    xkb_state*   _state;
 
-    XKB(const Connection& conn);
+    static inline XKB* _instance = nullptr;
+    explicit XKB(Connection& conn);
     void _clear_keymap();
 
 public:
+    static auto instance() noexcept -> XKB&;
+
     inline auto context() const noexcept -> xkb_context*
     { return _ctx;    }
     inline auto keymap()  const noexcept -> xkb_keymap*
@@ -24,8 +27,14 @@ public:
     inline auto state()   const noexcept -> xkb_state*
     { return _state;  }
 
+    /**
+     * @brief Creates a Keybind with specified keycode and modifiers
+     * @param keycode
+     * @param modifiers
+     * @return
+     */
+    static auto create_keybind(xkb_keycode_t keycode, xkb_mod_mask_t modifiers) noexcept -> Keybind;
+
     virtual void update_keymap() = 0;
     virtual ~XKB();
 };
-
-auto create_keybind(XKB& xkb, uint32_t keycode, uint16_t modifiers) noexcept -> Keybind;

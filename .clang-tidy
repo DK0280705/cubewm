@@ -1,5 +1,5 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,readibility-*,performance-*'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,readibility-*,performance-*,-bugprone-reserved-identifier'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
@@ -8,10 +8,6 @@ User:            dk_028
 CheckOptions:
   - key:             llvm-else-after-return.WarnOnConditionVariables
     value:           'false'
-  - key:             modernize-loop-convert.MinConfidence
-    value:           reasonable
-  - key:             modernize-replace-auto-ptr.IncludeStyle
-    value:           llvm
   - key:             cert-str34-c.DiagnoseSignedUnsignedCharComparisons
     value:           'false'
   - key:             google-readability-namespace-comments.ShortNamespaceLines
