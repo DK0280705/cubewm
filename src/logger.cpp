@@ -5,7 +5,7 @@ namespace logger
 {
 static std::mutex _mutex;
 
-void print(const std::string& msg)
+void print_line(const std::string& msg)
 {
     std::lock_guard<std::mutex> lock(_mutex);
     fmt::print("{}\n", msg);
