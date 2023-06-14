@@ -2,10 +2,9 @@
 #include "atom.h"
 #include "event.h"
 #include "extension.h"
+#include "ewmh.h"
 #include "window.h"
 #include "../config.h"
-#include "../connection.h"
-#include "../state.h"
 #include "../logger.h"
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
@@ -14,7 +13,8 @@
 
 namespace X11 {
 
-static void _acquire_first_timestamp(const Connection& conn)
+[[nodiscard]]
+static auto _get_timestamp(const Connection& conn) noexcept -> xcb_timestamp_t
 {
     // Initiate requests
     xcb_grab_server(conn);
@@ -32,34 +32,67 @@ static void _acquire_first_timestamp(const Connection& conn)
     conn.flush();
 
     xcb_generic_event_t* event = nullptr;
+    auto _ = memory::finally([&]() { if (event) free(event); });
+
     while ((event = xcb_wait_for_event(conn)))
         if ((event->response_type & 0x7F) == XCB_PROPERTY_NOTIFY) {
-            Timestamp::update(((xcb_property_notify_event_t*)event)->time);
-            free(event);
-            return;
+            window::change_attributes(root_window_id(conn),
+                                      XCB_CW_EVENT_MASK,
+                                      std::span<const uint32_t, 0>{});
+            return ((xcb_property_notify_event_t*)event)->time;
         } else free(event);
+    std::unreachable();
+}
+
+[[nodiscard]]
+static auto _get_selection_owner(const Connection& conn) -> xcb_window_t
+{
+    auto reply = memory::c_own(xcb_get_selection_owner_reply(
+            conn,
+            xcb_get_selection_owner(conn, atom::WM_SN),
+            nullptr));
+    return (reply) ? reply->owner : XCB_NONE;
+}
+
+[[nodiscard]]
+static auto _create_main_window(const Connection& conn) -> xcb_window_t
+{
+    xcb_window_t main_window = xcb_generate_id(conn);
+
+    const int ov_rdr[] = {1};
+    xcb_create_window(conn, XCB_COPY_FROM_PARENT, main_window, root_window_id(conn),
+                      -1, -1, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT,
+                      XCB_CW_OVERRIDE_REDIRECT, static_cast<const void*>(ov_rdr));
+
+    window::change_property(main_window,
+                            window::prop::replace,
+                            XCB_ATOM_WM_CLASS,
+                            XCB_ATOM_STRING,
+                            std::span{config::WM_SN_CLASS});
+    window::change_property(main_window,
+                            window::prop::replace,
+                            XCB_ATOM_WM_NAME,
+                            XCB_ATOM_STRING,
+                            std::span{config::WM_NAME});
+
+    return main_window;
 }
 
 static void _acquire_selection_owner(const Connection&  conn,
                                      const xcb_window_t main_window,
-                                     const bool         replace_wm)
+                                     const xcb_window_t previous_owner)
 {
-    auto reply = memory::c_own<xcb_get_selection_owner_reply_t>(
-        xcb_get_selection_owner_reply(
-            conn, xcb_get_selection_owner(conn, atom::WM_SN), 0));
-    assert_runtime(!(reply && reply->owner != XCB_NONE && !replace_wm), "Another WM is running (Selection Owner)");
-
     // This will notify selection clear event on another wm
     xcb_set_selection_owner(conn, main_window, atom::WM_SN, Timestamp::get());
 
-    // Wait for another wm to exit
-    if (reply->owner != XCB_NONE) {
+    // Wait for another wm to exit if previous owner exists
+    if (previous_owner != XCB_NONE) {
         unsigned int check_times = 10;
         while (true) {
             logger::info("Waiting for another WM to exit: {}", check_times);
 
             auto* greply = xcb_get_geometry_reply(
-                conn, xcb_get_geometry(conn, reply->owner), 0);
+                conn, xcb_get_geometry(conn, previous_owner), 0);
             if (greply) free(greply);
             else break;
 
@@ -82,79 +115,6 @@ static void _acquire_selection_owner(const Connection&  conn,
     xcb_send_event(conn, 0, root_window_id(conn), XCB_EVENT_MASK_STRUCTURE_NOTIFY, (const char*)&event);
 }
 
-static void _setup_hints(const Connection& conn, const xcb_window_t main_window)
-{
-    xcb_atom_t supported_atoms[] = {
-#define xmacro(a) atom::a,
-        SUPPORTED_ATOMS_XMACRO
-#undef xmacro
-    };
-
-    window::change_property(root_window_id(conn),
-                            window::prop::replace,
-                            atom::_NET_SUPPORTED,
-                            XCB_ATOM_ATOM,
-                            std::span{supported_atoms});
-
-    // Setup main window property
-    static const char* name = "cube";
-
-    window::change_property(root_window_id(conn),
-                            window::prop::replace,
-                            atom::_NET_SUPPORTING_WM_CHECK,
-                            XCB_ATOM_WINDOW,
-                            std::span{&main_window, 1});
-    window::change_property(main_window,
-                            window::prop::replace,
-                            atom::_NET_SUPPORTING_WM_CHECK,
-                            XCB_ATOM_WINDOW,
-                            std::span{&main_window, 1});
-    window::change_property(main_window,
-                            window::prop::replace,
-                            atom::_NET_WM_NAME,
-                            atom::UTF8_STRING,
-                            std::span{&name, 1});
-
-    xcb_map_window(conn, main_window);
-}
-
-static xcb_window_t _setup_main_window(const Connection& conn)
-{
-    xcb_window_t main_window = xcb_generate_id(conn);
-
-    const int temp[] = {1};
-    xcb_create_window(conn,
-                      XCB_COPY_FROM_PARENT,
-                      main_window,
-                      root_window_id(conn),
-                      // Just in case i forgor
-                      -1,
-                      -1,
-                      1,
-                      1, // dim (x, y, w, h)
-                      0, // border
-                      XCB_WINDOW_CLASS_INPUT_ONLY,
-                      XCB_COPY_FROM_PARENT,
-                      XCB_CW_OVERRIDE_REDIRECT,
-                      static_cast<const void*>(temp));
-
-    static constexpr const char WM_SN_CLASS[] = "cubewm-WM_Sn\0cubewm-WM_Sn";
-    static constexpr const char WM_SN_NAME[]  = "cubewm selection window";
-
-    window::change_property(main_window,
-                            window::prop::replace,
-                            XCB_ATOM_WM_CLASS,
-                            XCB_ATOM_STRING,
-                            std::span{WM_SN_CLASS});
-    window::change_property(main_window,
-                            window::prop::replace,
-                            XCB_ATOM_WM_NAME,
-                            XCB_ATOM_STRING,
-                            std::span{WM_SN_NAME});
-
-    return main_window;
-}
-
 static const X11::Connection* _pconnection = nullptr;
 static xcb_window_t           _main_window = 0;
 
@@ -162,24 +122,48 @@ void init(const X11::Connection& conn)
 {
     _pconnection = &conn;
 
-    atom::init();
+    // Initialize atoms, get all runtime defined atoms.
+    atom::init(conn);
 
-    _acquire_first_timestamp(conn);
+    // Get timestamp
+    xcb_timestamp_t timestamp = _get_timestamp(conn);
+    Timestamp::update(timestamp);
     logger::debug("First timestamp: {}", Timestamp::get());
 
-    _main_window = _setup_main_window(conn);
-    _acquire_selection_owner(conn, _main_window, config::replace_wm);
-    logger::debug("Selection owner acquired");
+    // Get current selection owner
+    xcb_window_t prev_owner = _get_selection_owner(conn);
+    assert_runtime<Display_error>(prev_owner == XCB_NONE || config::replace_wm,
+                                  "Another WM is running (Selection Owner)");
+    logger::debug("Current selection owner: {:#x}", prev_owner);
 
-    _setup_hints(conn, _main_window);
+    // Set _NET_SUPPORTED hints
+    xcb_atom_t supported_atoms[] = {
+#define xmacro(a) atom::a,
+   SUPPORTED_ATOMS_XMACRO
+#undef xmacro
+    };
+    ewmh::update_net_supported(supported_atoms);
 
+    // Create main window.
+    _main_window = _create_main_window(conn);
+
+    // Try to acquire selection owner and replace current window manager if it's exist.
+    _acquire_selection_owner(conn, _main_window, prev_owner);
+    logger::debug("Selection owner acquired, main window: {:#x}", _main_window);
+
+    // Set _NET_SUPPORTING_WM_CHECK hints
+    ewmh::update_net_supporting_wm_check(_main_window);
+
+    // Initialize events for root window.
     event::init(conn);
+
+    // Initialize extensions: XRandR, XShape, Xinerama, XKB
     extension::init(conn);
 }
 
 namespace detail {
 
-const Connection& conn() noexcept
+auto conn() noexcept -> const Connection&
 {
     assert_debug(_pconnection, "X11 is not initialized yet");
     // Nahh if statement is stupid.
@@ -188,19 +172,20 @@ const Connection& conn() noexcept
     return *_pconnection;
 }
 
-unsigned int root_window_id() noexcept
+auto root_window_id() noexcept -> xcb_window_t
 {
     assert_debug(_pconnection, "X11 is not initialized yet");
     return X11::root_window_id(*_pconnection);
 }
 
-unsigned int main_window_id() noexcept
+auto main_window_id() noexcept -> xcb_window_t
 {
     assert_debug(_main_window != 0, "Window manager is not initialized yet");
     return _main_window;
 }
 
-void check_error(const xcb_void_cookie_t& cookie) {
+void check_error(const xcb_void_cookie_t& cookie)
+{
     auto reply = memory::c_own(xcb_request_check(X11::detail::conn(), cookie));
     assert_runtime(!reply, "Change property failed");
 }

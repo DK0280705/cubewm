@@ -1,37 +1,60 @@
 #pragma once
-#include "helper/pointer_wrapper.h"
 #include "managed.h"
 #include "container.h"
+
+#include "helper/pointer_wrapper.h"
+#include "helper/std_extension.h"
+
+#include <utility>
 #include <vector>
 #include <ranges>
 
 class Workspace;
 
-class Monitor : public Container
-              , public Managed<unsigned int>
+class Monitor final : public Container
+                    , public Managed<uint32_t>
 {
     std::string             _name;
+    Workspace*              _current;
     std::vector<Workspace*> _workspaces;
+
+    void _update_rect_fn()  noexcept override;
+    void _update_focus_fn() noexcept override;
 
 public:
     HELPER_POINTER_ITERATOR_WRAPPER(_workspaces);
 
+    inline auto size() const noexcept -> std::size_t
+    { return _workspaces.size(); }
+
+    inline bool empty() const noexcept
+    { return _workspaces.empty(); }
+
     inline auto name() const noexcept -> std::string_view
     { return _name; }
 
-    inline void add(Workspace& ws)
-    { _workspaces.push_back(&ws); }
+    void add(Workspace& workspace);
 
-    inline void remove(Workspace& ws)
-    { _workspaces.erase(std::ranges::find(_workspaces, &ws)); }
+    void remove(const_iterator it);
+
+    inline void current(const_iterator it)
+    {
+        assert(std::ranges::contains(_workspaces, &*it));
+        _current = &*it;
+    }
+
+    inline auto current() const noexcept -> std::optref<Workspace>
+    {
+        return _current ? std::optref<Workspace>(*_current)
+                        : std::nullopt;
+    }
 
 public:
-    explicit Monitor(const Index id, const std::string& name) noexcept
+     Monitor(const Index id, std::string name) noexcept
         : Managed(id)
-        , _name(name)
-    {}
+        , _name(std::move(name))
+        , _current(nullptr)
+     {}
 
-    void update_rect() noexcept override;
-
-    virtual ~Monitor() noexcept;
+    ~Monitor() noexcept override;
 };

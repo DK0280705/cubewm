@@ -48,11 +48,11 @@ public:
     requires (std::constructible_from<Derived, Key, Args...>)
     auto manage(const Key& key, Args&&... args) -> Derived&
     {
-        assert_runtime<Existence_error>(!_managed.contains(key), "Managing already managed item");
-        Derived* man = new Derived(key, std::forward<Args>(args)...);
-        _managed.emplace(key, man);
+        assert_runtime<Existence_error>(!_managed.contains(key), "Managing already managed key");
+        const auto& [it, _] = _managed.emplace(key, new Derived(key, std::forward<Args>(args)...));
+        assert(_);
         this->notify_all();
-        return *man;
+        return *static_cast<Derived*>(it->second);
     }
 
     void unmanage(const Key& key)

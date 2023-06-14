@@ -30,4 +30,11 @@ struct __contains_fn
 
 inline constexpr __contains_fn contains {};
 } // namespace ranges
+
+[[noreturn]]
+inline void unreachable()
+{
+    __builtin_unreachable();
+}
+
 } // namespace std

@@ -9,7 +9,7 @@ class State;
 class Binding : public Managed<Keybind>
 {
 protected:
-    Binding(const Index& k)
+    explicit Binding(const Index& k)
         : Managed(k)
     {}
 public:

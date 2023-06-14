@@ -28,10 +28,17 @@ auto Server::init(::Connection& conn) -> Server&
     window::grab_keys(X11::root_window_id(state.conn()), state);
 
     // Register emwh functions
-    state.connect<State::current_workspace_update>(ewmh::update_current_desktop);
-    state.connect<State::window_manager_update>(ewmh::update_client_list);
-    state.connect<State::workspace_manager_update>(ewmh::update_desktop_names);
-    state.connect<State::workspace_manager_update>(ewmh::update_number_of_desktops);
+
+    // Updating current workspace means updating current active window.
+    state.connect<State::current_workspace_update>([](const State& state) {
+        ewmh::update_net_current_desktop(state.current_workspace());
+        const auto& window_list = state.current_workspace().window_list();
+        uint32_t window_id = window_list.empty() ? XCB_NONE : window_list.current()->get().index();
+        ewmh::update_net_active_window(window_id);
+    });
+    state.connect<State::window_manager_update>(ewmh::update_net_client_list);
+    state.connect<State::workspace_manager_update>(ewmh::update_net_desktop_names);
+    state.connect<State::workspace_manager_update>(ewmh::update_net_number_of_desktops);
     state.notify_all();
 
     return server;

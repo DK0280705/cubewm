@@ -1,12 +1,12 @@
 #include "window.h"
 #include "atom.h"
-#include "constant.h"
 #include "ewmh.h"
 #include "extension.h"
 #include "xkb.h"
 #include "frame.h"
 #include "x11.h"
 
+#include "../config.h"
 #include "../logger.h"
 
 #include <limits>
@@ -83,7 +83,7 @@ static void fetch_role(const xcb_window_t window_id, std::string& role)
 }
 
 static void fetch_class_and_instance(const xcb_window_t window_id,
-                                      Window::X11_property::WM_class& wm_class)
+                                     Window::X11_property::WM_class& wm_class)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
@@ -147,11 +147,12 @@ static void init_xprop(const uint32_t window_id, ::Window::X11_property& xprop)
 
 // X11::Window implementations
 Window::Window(Index id)
-    : ::Window(id, Display_type::X11, new X11::Window_frame(*this))
+    : ::Window(id, Display_type::X11)
 {
     // Get window events
-    const uint32_t mask_values[] = { XCB_GRAVITY_NORTH_WEST, constant::CHILD_EVENT_MASK };
+    const uint32_t mask_values[] = { XCB_GRAVITY_NORTH_WEST, config::X11::CHILD_EVENT_MASK };
     window::change_attributes(id, XCB_CW_WIN_GRAVITY | XCB_CW_EVENT_MASK, std::span{mask_values});
+
     if (extension::xshape().is_supported) {
         xcb_shape_select_input(X11::detail::conn(), id, XCB_SHAPE_NOTIFY);
     }
@@ -161,42 +162,44 @@ Window::Window(Index id)
     window::detail::fetch_name(id, name);
     this->name(name);
 
+    // Init Frame
+    this->_fill_frame(memory::make_owner<X11::Window_frame>(*this));
+
     // Init X11 Property
-    _xprop = new X11_property;
+    this->_fill_xprop(memory::make_owner<X11_property>());
     window::detail::init_xprop(id, xprop());
     _do_not_focus = !xprop().wm_hints.input
                  && std::ranges::contains(xprop().protocols, X11::atom::WM_TAKE_FOCUS);
 }
 
-void Window::_update_rect() noexcept
+void Window::_update_rect_fn() noexcept
 {
-    window::configure_rect(index(), actual_size());
+    frame().rect(this->rect());
+    window::configure_rect(index(), {
+            { this->rect().pos.x + (int)config::GAP_SIZE, this->rect().pos.y + (int)config::GAP_SIZE },
+            { this->rect().size.x - 2*(int)config::GAP_SIZE, this->rect().size.y - 2*(int)config::GAP_SIZE }
+    });
 }
 
-void Window::focus()
+void Window::_update_focus_fn() noexcept
 {
-    if (_do_not_focus) {
-        logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
-        window::send_take_focus(index());
-    } else {
-        logger::debug("Window focus -> setting input focus to window : {:#x}", index());
-        window::set_input_focus(index());
+    if (!focused()) { // Not focused (focus())
+        if (_do_not_focus) {
+            logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
+            window::send_take_focus(index());
+        } else {
+            logger::debug("Window focus -> setting input focus to window : {:#x}", index());
+            window::set_input_focus(index());
+        }
+        X11::ewmh::update_net_active_window(index());
+    } else { // Focused (unfocus())
+        xcb_set_input_focus(X11::detail::conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::detail::main_window_id(),
+                            XCB_CURRENT_TIME);
+        X11::ewmh::update_net_active_window(XCB_NONE);
     }
-    X11::ewmh::update_active_window(index());
-    _focused = true;
 }
 
-void Window::unfocus()
-{
-    xcb_set_input_focus(X11::detail::conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::detail::main_window_id(),
-                        XCB_CURRENT_TIME);
-    _focused = false;
-}
-
-Window::~Window() noexcept
-{
-    delete _xprop;
-}
+Window::~Window() noexcept = default;
 
 
 // Utilities
@@ -297,7 +300,8 @@ static auto _load_workspace(const uint32_t window_id, State& state) -> Workspace
 {
     const auto ws_id = _fetch_workspace(window_id);
     auto& wor_mgr    = state.workspaces();
-    return wor_mgr.contains(ws_id) ? wor_mgr.at(ws_id) : wor_mgr.manage(ws_id);
+    return wor_mgr.contains(ws_id) ? wor_mgr.at(ws_id)
+                                   : state.create_workspace(state.current_monitor(), ws_id);
 }
 
 static void _manage(const uint32_t window_id, State& state, const bool is_starting_up)
@@ -369,12 +373,12 @@ void send_take_focus(const uint32_t window_id) noexcept
 
 void set_input_focus(const uint32_t window_id) noexcept
 {
-    uint32_t mask_values[] = { constant::CHILD_EVENT_MASK & ~XCB_EVENT_MASK_FOCUS_CHANGE };
+    uint32_t mask_values[] = { config::X11::CHILD_EVENT_MASK & ~XCB_EVENT_MASK_FOCUS_CHANGE };
     window::change_attributes(window_id, XCB_CW_EVENT_MASK, std::span{mask_values});
 
     xcb_set_input_focus(X11::detail::conn(), XCB_INPUT_FOCUS_POINTER_ROOT, window_id, XCB_CURRENT_TIME);
 
-    mask_values[0] = constant::CHILD_EVENT_MASK;
+    mask_values[0] = config::X11::CHILD_EVENT_MASK;
     window::change_attributes(window_id, XCB_CW_EVENT_MASK, std::span{mask_values});
 }
 

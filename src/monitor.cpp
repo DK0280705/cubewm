@@ -2,7 +2,7 @@
 #include "logger.h"
 #include "workspace.h"
 
-void Monitor::update_rect() noexcept
+void Monitor::_update_rect_fn() noexcept
 {
     const auto& rect = this->rect();
     logger::debug("Monitor rect update -> x: {}, y: {}, width: {}, height: {}",
@@ -10,6 +10,28 @@ void Monitor::update_rect() noexcept
     // Should count for dockarea rect
     for (auto& ws : *this)
         ws.rect(rect);
+}
+
+void Monitor::_update_focus_fn() noexcept
+{
+    if (!focused()) {
+        if (_current) _current->focus();
+    } else {
+        if (_current) _current->unfocus();
+    }
+}
+
+void Monitor::add(Workspace& workspace)
+{
+    workspace._monitor = this;
+    _workspaces.push_back(&workspace);
+}
+
+void Monitor::remove(Monitor::const_iterator it)
+{
+    assert(std::ranges::contains(_workspaces, &*it));
+    it->_monitor = nullptr;
+    _workspaces.erase(it);
 }
 
 Monitor::~Monitor() noexcept

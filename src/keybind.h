@@ -21,7 +21,8 @@ struct Keybind
     bool operator==(const Keybind&) const = default;
 };
 
-constexpr size_t hash_combine(size_t lhs, size_t rhs) {
+constexpr auto hash_combine(size_t lhs, size_t rhs) -> size_t
+{
     if constexpr (sizeof(size_t) >= 8) {
         lhs ^= rhs + 0x517cc1b727220a95 + (lhs << 6) + (lhs >> 2);
     } else {
@@ -37,7 +38,7 @@ constexpr size_t test_size2 = hash_combine(1, 5);
 template <>
 struct std::hash<Keybind>
 {
-    std::size_t operator()(const Keybind& k) const noexcept
+    auto operator()(const Keybind& k) const noexcept -> std::size_t
     {
         std::size_t h1 = std::hash<unsigned int>{}(k.keysym);
         std::size_t h2 = std::hash<unsigned int>{}(k.modifiers);

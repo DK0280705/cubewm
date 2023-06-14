@@ -1,9 +1,11 @@
 #include "window.h"
-#include "config.h"
 #include "layout.h"
-#include "window.h"
 #include "workspace.h"
 #include "logger.h"
+#include "frame.h"
+
+// For Window::X11_property implementation.
+#include "x11/window.h"
 
 void Window_list::add(Window& window)
 {
@@ -31,27 +33,29 @@ void Window_list::remove(const_iterator it)
     _list.erase(it);
 }
 
-void Window::update_rect() noexcept
+Window::Window(unsigned int id, Window::Display_type dt) noexcept
+    : Managed(id)
+    , _display_type(dt)
+    , _layout_mark(Layout_mark(*this))
 {
-    _actual_size = {
-        { this->rect().pos.x + (int)config::gap_size, this->rect().pos.y + (int)config::gap_size },
-        { this->rect().size.x - 2*(int)config::gap_size, this->rect().size.y - 2*(int)config::gap_size }
-    };
-    frame().rect(this->rect());
-    _update_rect();
+    assert(_frame);
 }
 
 bool Window::is_marked() const noexcept
 {
-    if (!parent().has_value()) return false;
-    const auto& parent = this->parent()->get().get<Layout>();
-    return (_layout_mark._marked) && (_layout_mark._type != parent.type());
+    if (this->parent().has_value()) {
+        const auto &parent = this->parent()->get().get<Layout>();
+        return (_layout_mark._marked) && (_layout_mark._type != parent.type());
+    } else return false;
 }
 
-Window::~Window() noexcept
-{
-    delete _frame;
-}
+void Window::_fill_xprop(memory::owner<Window::X11_property> xprop) noexcept
+{ _xprop = std::move(xprop); }
+
+void Window::_fill_frame(memory::owner<Window_frame> frame) noexcept
+{ _frame = std::move(frame); }
+
+Window::~Window() noexcept = default;
 
 namespace window {
 
@@ -137,21 +141,20 @@ void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark)
     Layout::Type mark = layout_mark.type();
 
     assert(marked_window.parent());
-    Layout &parent = marked_window.parent()->get().get<Layout>();
+    auto& parent = marked_window.parent()->get().get<Layout>();
 
     // If parent has one child, just change the type of layout.
     if (parent.size() > 1) {
-        Layout *layout = new Layout(mark);
+        auto* layout = new Layout(mark);
         parent.insert(std::ranges::find(parent, marked_window), *layout);
         parent.remove(marked_window);
         layout->add(marked_window);
         layout->add(window);
+        parent.update_rect();
     } else {
         parent.add(window);
         parent.type(mark);
     }
-
-    parent.update_rect();
 }
 
 void purge_and_reconfigure(Window &window)

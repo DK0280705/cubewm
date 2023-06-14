@@ -12,8 +12,8 @@ class Server : public ::Server
              , public helper::Init_once<Server>
 {
 public:
-    Server(::Connection& conn);
-    static Server& init(::Connection& conn);
+    explicit Server(::Connection& conn);
+    static auto init(::Connection& conn) -> Server&;
 
     void start() override;
     void stop()  override;

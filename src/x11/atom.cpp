@@ -1,5 +1,6 @@
 #include "atom.h"
 #include "connection.h"
+#include "ewmh.h"
 #include "x11.h"
 
 #include "../helper/memory.h"
@@ -15,40 +16,36 @@ namespace X11::atom {
     xcb_atom_t WM_SN = 0;
 #undef xmacro
 
-void init()
+void init(const X11::Connection& conn)
 {
-#define xmacro(name) { name = by_name(#name); }
+#define xmacro(name) { name = by_name(conn, #name); }
     ALL_ATOMS_XMACRO;
-    WM_SN = by_screen("WM");
+    WM_SN = by_screen(conn, "WM");
 #undef xmacro
 }
 
-xcb_atom_t by_name(const char* name)
+auto by_name(const X11::Connection& conn, const char* name) -> xcb_atom_t
 {
     auto reply = memory::c_own(xcb_intern_atom_reply(
-        X11::detail::conn(),
-        xcb_intern_atom_unchecked(X11::detail::conn(), false, strlen(name), name),
+        conn,
+        xcb_intern_atom_unchecked(conn, false, strlen(name), name),
         nullptr));
-
     return reply->atom;
 }
 
-xcb_atom_t by_screen(const char* base_name)
+auto by_screen(const X11::Connection& conn, const char* base_name) -> xcb_atom_t
 {
-    auto name = memory::c_own(xcb_atom_name_by_screen(base_name, X11::detail::conn().scr_id()));
-
-    const xcb_atom_t atom = by_name(name.get());
-
-    return atom;
+    auto name = memory::c_own(xcb_atom_name_by_screen(base_name, conn.scr_id()));
+    return by_name(conn, name.get());
 }
 
-std::string name(const xcb_atom_t atom)
+auto name(const X11::Connection& conn, const xcb_atom_t atom) -> std::string
 {
     auto reply = memory::c_own<xcb_get_atom_name_reply_t>(
         xcb_get_atom_name_reply(
-            X11::detail::conn(),
-            xcb_get_atom_name(X11::detail::conn(), atom),
-            NULL));
+            conn,
+            xcb_get_atom_name(conn, atom),
+            nullptr));
     if (!reply) throw std::runtime_error("Failed to get atom name");
     return xcb_get_atom_name_name(reply.get());
 }

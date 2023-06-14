@@ -22,7 +22,7 @@ struct XRandR_output
     std::vector<xcb_randr_output_t> outputs;
 };
 
-static void _load_all_xinerama(State& state)
+static void _load_all_xinerama(State&)
 {
 
 }
@@ -35,7 +35,7 @@ static auto _get_randr_monitor_outputs(xcb_randr_monitor_info_t& data) -> XRandR
     rnr_output.mm_height = data.height_in_millimeters;
     rnr_output.name      = [&] () -> std::string {
         try {
-            return atom::name(data.name);
+            return atom::name(X11::detail::conn(), data.name);
         } catch (const std::runtime_error&) {
             return "unknown";
         }

@@ -37,16 +37,16 @@ static consteval auto prop_size() -> int
 class Connection;
 
 // Have a good time with this :)
+// let's call this Window builder.
 class Window : public ::Window
 {
     bool _do_not_focus;
-    void _update_rect() noexcept override;
+
+    void _update_rect_fn()  noexcept override;
+    void _update_focus_fn() noexcept override;
 
 public:
     explicit Window(Index id);
-
-    void focus()   override;
-    void unfocus() override;
 
     ~Window() noexcept override;
 };

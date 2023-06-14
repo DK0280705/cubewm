@@ -68,9 +68,10 @@ xmacro(_XEMBED) \
 xmacro(MANAGER)
 // clang-format on
 
-typedef unsigned int xcb_atom_t;
+using xcb_atom_t = unsigned int;
 
 namespace X11 {
+class Connection;
 
 namespace atom {
 
@@ -104,11 +105,11 @@ ALL_ATOMS_XMACRO; // NOLINT
 xmacro(WM_SN);    // NOLINT
 #undef xmacro
 
-xcb_atom_t  by_name(const char* name);
-xcb_atom_t  by_screen(const char* base_name);
-std::string name(const xcb_atom_t atom);
+auto by_name(const X11::Connection& conn, const char* name) -> xcb_atom_t;
+auto by_screen(const X11::Connection& conn, const char* base_name) -> xcb_atom_t;
+auto name(const X11::Connection& conn, xcb_atom_t atom) -> std::string;
 
-void init();
+void init(const X11::Connection& conn);
 
 } // namespace atom
 

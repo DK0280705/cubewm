@@ -3,13 +3,19 @@
 #include "window.h"
 #include "helper/pointer_wrapper.h"
 
-class Workspace : public Root<Container>
-                , public Managed<unsigned int>
+class Monitor;
+
+class Workspace final : public Root<Container>
+                      , public Managed<unsigned int>
 {
     std::string _name;
     Window_list _window_list;
+    Layout*     _focused_layout;
+    Monitor*    _monitor;
+    friend class Monitor;
 
-    Layout* _focused_layout;
+    void _update_rect_fn()  noexcept override;
+    void _update_focus_fn() noexcept override;
 
 public:
     explicit Workspace(Index id);
@@ -41,11 +47,8 @@ public:
         return this->front()->get().get<Layout>();
     }
 
-public:
-    void update_rect() noexcept override;
+    inline auto monitor() const noexcept -> Monitor&
+    { assert(_monitor); return *_monitor; }
 
-    ~Workspace() noexcept override
-    {
-        for (const auto& c : *this) delete &c;
-    }
+    ~Workspace() noexcept override;
 };

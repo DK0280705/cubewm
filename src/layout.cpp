@@ -61,7 +61,7 @@ static void _update_rect_tabbed(Layout& layout)
     }
 }
 
-void Layout::update_rect() noexcept
+void Layout::_update_rect_fn() noexcept
 {
     switch(_type) {
     case Type::Horizontal:
@@ -74,4 +74,17 @@ void Layout::update_rect() noexcept
         return; // Useless, size does not matter here.
     default: break; // silence
     }
+}
+
+void Layout::_update_focus_fn() noexcept
+{
+    if (!focused())
+        _frame->focus();
+    else
+        _frame->unfocus();
+}
+
+Layout::~Layout() noexcept
+{
+    for (const auto& child : *this) delete &child;
 }

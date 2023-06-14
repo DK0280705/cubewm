@@ -142,8 +142,6 @@ public:
     {
         _children.splice(std::ranges::prev(position), _children, position);
     }
-
-    virtual ~Node() noexcept = default;
 };
 
 template <typename T>

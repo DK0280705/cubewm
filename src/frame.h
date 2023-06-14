@@ -4,23 +4,9 @@
 
 class Window;
 class Layout;
-class Focusable
-{
-protected:
-    bool _focused{};
-
-public:
-    inline bool focused() const noexcept
-    { return _focused; }
-
-    virtual void focus() = 0;
-    virtual void unfocus() = 0;
-    virtual ~Focusable() noexcept = default;
-};
 
 class Layout_frame : public Managed<unsigned int>
                    , public Container
-                   , public Focusable
 {
     Layout& _layout;
 
@@ -30,13 +16,12 @@ public:
         , _layout(layout)
     {}
 
-    inline Layout& layout() const noexcept
+    inline auto layout() const noexcept -> Layout&
     { return _layout; }
 };
 
 class Window_frame : public Managed<unsigned int>
                    , public Container
-                   , public Focusable
 {
     Window& _window;
 
@@ -46,6 +31,6 @@ public:
         , _window(window)
     {}
 
-    inline Window& window() const noexcept
+    inline auto window() const noexcept -> Window&
     { return _window; }
 };

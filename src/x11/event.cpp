@@ -1,11 +1,12 @@
+#include "event.h"
+#include "atom.h"
+#include "extension.h"
+#include "window.h"
+
+#include "../config.h"
 #include "../logger.h"
 #include "../state.h"
 #include "../server.h"
-#include "atom.h"
-#include "constant.h"
-#include "extension.h"
-#include "window.h"
-#include "event.h"
 
 #include <ranges>
 #include <xcb/xproto.h>
@@ -44,7 +45,7 @@ namespace X11::event {
 void init(const X11::Connection& conn)
 {
     try {
-        const uint32_t mask[] = { constant::ROOT_EVENT_MASK };
+        const uint32_t mask[] = { config::X11::ROOT_EVENT_MASK };
         window::change_attributes_c(root_window_id(conn),
                                     XCB_CW_EVENT_MASK,
                                     std::span{mask});

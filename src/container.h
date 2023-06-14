@@ -7,9 +7,16 @@
  */
 #include "geometry.h"
 
+#include <cassert>
+
 class Container
 {
     Vector2D _rect;
+    bool     _focused;
+
+protected: // To avoid ambiguous name.
+    virtual void _update_rect_fn()  noexcept = 0;
+    virtual void _update_focus_fn() noexcept = 0;
 
 public:
     Container() noexcept                   = default;
@@ -18,13 +25,32 @@ public:
     Container& operator=(const Container&) = delete;
     Container& operator=(Container&&)      = default;
 
-    inline const Vector2D& rect() const noexcept
+    inline auto rect() const noexcept -> const Vector2D&
     { return _rect; }
-
     inline void rect(const Vector2D& rect) noexcept
-    { _rect = rect; update_rect(); }
+    {
+        _rect = rect;
+        _update_rect_fn();
+    }
+    inline void update_rect() noexcept
+    { _update_rect_fn(); }
 
-    virtual void update_rect() noexcept = 0;
+    inline bool focused() const noexcept
+    { return _focused; }
+    inline void focus() noexcept
+    {
+        assert(!_focused);
+        _focused = true;
+        _update_focus_fn();
+    }
+    inline void unfocus() noexcept
+    {
+        assert(_focused);
+        _focused = false;
+        _update_focus_fn();
+    }
+
+    virtual ~Container() noexcept = default;
 
     // A container is special, therefore no duplicates.
     // To be equal, means it's the same object.

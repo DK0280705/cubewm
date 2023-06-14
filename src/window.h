@@ -2,14 +2,18 @@
 #include "container.h"
 #include "geometry.h"
 #include "node.h"
-#include "frame.h"
 #include "layout.h"
 #include "managed.h"
+
+#include "helper/memory.h"
+
 #include <concepts>
-#include <cstddef>
 #include <vector>
 
+class Window;
 class Workspace;
+class Window_frame;
+
 class Window_list
 {
     std::vector<Window*> _list;
@@ -30,7 +34,6 @@ class Window_list
 };
 
 class Window : public Leaf<Container>
-             , public Focusable
              , public Managed<unsigned int>
 {
 public:
@@ -63,29 +66,27 @@ public:
     struct X11_property;
 
 private:
-    std::string   _name;
-    Vector2D      _actual_size;
-    Display_type  _display_type;
-    Layout_mark   _layout_mark;
-    Window_frame* _frame;
+    std::string                 _name;
+    Display_type                _display_type;
+    Layout_mark                 _layout_mark;
+    memory::owner<Window_frame> _frame;
+    memory::owner<X11_property> _xprop;
 
 public:
-    // Set/Get window name
+    /**
+     * Set window name
+     * @param name
+     */
     inline void name(const std::string& name) noexcept
-    {
-        _name = name;
-    }
+    { _name = name; }
 
+    /**
+     * Get window name
+     * @return
+     */
     inline auto name() const noexcept -> std::string_view
-    {
-        return _name;
-    }
+    { return _name; }
 
-    // Returns window's actual size
-    inline auto actual_size() const noexcept -> const Vector2D&
-    {
-        return _actual_size;
-    }
 
     // Returns either X11 or Wayland
     inline auto display_type() const noexcept -> Display_type
@@ -116,26 +117,18 @@ public:
         return *_frame;
     }
 
-    inline auto xprop() noexcept -> X11_property&
+    inline auto xprop() const noexcept -> X11_property&
     {
         assert(_display_type == Display_type::X11);
         return *_xprop;
     }
 
 protected:
-    X11_property* _xprop;
+    void _fill_xprop(memory::owner<X11_property> xprop) noexcept;
 
-    Window(Index id, Display_type dt, Window_frame* frame) noexcept
-        : Managed(id)
-        , _display_type(dt)
-        , _layout_mark(Layout_mark(*this))
-        , _frame(frame)
-        , _xprop(nullptr)
-    {
-        assert(_frame);
-    }
+    void _fill_frame(memory::owner<Window_frame> frame) noexcept;
 
-    virtual void _update_rect() noexcept = 0;
+    Window(Index id, Display_type dt) noexcept;
 
 public:
     /**
@@ -143,8 +136,6 @@ public:
      * @return bool
      */
     bool is_marked() const noexcept;
-
-    void update_rect() noexcept override;
 
     ~Window() noexcept override;
 };

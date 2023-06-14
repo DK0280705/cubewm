@@ -1,11 +1,12 @@
 #pragma once
 #include "binding.h"
 #include "connection.h"
-#include "helper/mixins.h"
 #include "manager.h"
 #include "monitor.h"
 #include "workspace.h"
 #include "window.h"
+
+#include "helper/mixins.h"
 
 namespace X11 {
 class Server;
@@ -45,8 +46,8 @@ private:
     Manager<Monitor>&   _mon_mgr;
     Manager<Workspace>& _wor_mgr;
     // Current focused Workspace and Monitor and Workspace specific container
-    Workspace*          _current_workspace;
-    Monitor*            _current_monitor;
+    Workspace*          _current_workspace{};
+    Monitor*            _current_monitor{};
 
 public:
     State(const State&)            = default;
@@ -54,23 +55,11 @@ public:
     State& operator=(const State&) = delete;
     State& operator=(State&&)      = delete;
 
-    State(Connection& conn)
-        : _conn(conn)
-        , _bin_mgr(Manager<Binding>::init())
-        , _win_mgr(Manager<Window>::init())
-        , _mon_mgr(Manager<Monitor>::init())
-        , _wor_mgr(Manager<Workspace>::init())
-    {}
+    explicit State(Connection& conn);
 
     static auto init(Connection& conn, X11::Server&) -> State&;
 
-    ~State() noexcept
-    {
-        // Recursively clear the tree.
-        _mon_mgr.clear();
-        // Unrelated to above.
-        _bin_mgr.clear();
-    }
+    ~State() noexcept;
 
 public:
     inline constexpr auto conn()       const noexcept -> const Connection&
@@ -84,27 +73,35 @@ public:
     inline constexpr auto workspaces() const noexcept -> Manager<Workspace>&
     { return _wor_mgr; }
 
-    inline void current_workspace(Workspace& workspace)
-    {
-        assert(_wor_mgr.contains(workspace.index()));
-        _current_workspace = &workspace;
-        notify<signals::current_workspace_update>();
-    }
+public:
+    // Discouraged for use, use change_workspace() instead.
+    void current_workspace(Workspace& workspace);
+    // Discouraged for use, use change_workspace() instead.
+    void current_monitor(Monitor& monitor);
 
-    inline void current_monitor(Monitor& monitor)
-    {
-        assert(_mon_mgr.contains(monitor.index()));
-        _current_monitor = &monitor;
-        notify<signals::current_monitor_update>();
-    }
+    void change_workspace(Workspace& workspace) noexcept;
 
+    /**
+     * @brief Get current workspace.
+     * @return Reference to current workspace
+     */
     inline auto current_workspace() const noexcept -> Workspace&
     { return *_current_workspace; }
 
+    /**
+     * @brief Get current monitor.
+     * @return Reference to current monitor
+     */
     inline auto current_monitor()   const noexcept -> Monitor&
     { return *_current_monitor;   }
 
 public:
+    /**
+     * @brief Manage a window
+     * @tparam Window_t Type derived from Window class
+     * @param window_id
+     * @return Reference to object derived from Window class.
+     */
     template<std::derived_from<Window> Window_t>
     inline auto manage_window(const uint32_t window_id) -> Window_t&
     {
@@ -122,9 +119,42 @@ public:
         _win_mgr.unmanage(window.index());
     }
 
+    inline auto create_workspace(Monitor& monitor) -> Workspace&
+    {
+        uint32_t id = 0;
+        while (_wor_mgr.contains(id))
+            ++id;
+        return create_workspace(monitor, id);
+    }
+
+    inline auto create_workspace(Monitor& monitor, Manager<Workspace>::Key workspace_id) -> Workspace&
+    {
+        Workspace& workspace = _wor_mgr.manage(workspace_id);
+        monitor.add(workspace);
+        return workspace;
+    }
+
+    inline void destroy_workspace(Manager<Workspace>::Key workspace_id)
+    {
+        Workspace& workspace = _wor_mgr.at(workspace_id);
+        assert_debug(workspace.empty(), "Workspace must be empty to safely destroy");
+        assert_debug(!workspace.focused(), "Workspace must not be focused");
+        Monitor& monitor = workspace.monitor();
+        assert_debug(current_workspace() != workspace, "Can't destroy current workspace");
+        if (monitor.current()->get() == workspace) {
+            if (monitor.size() > 1) {
+                monitor.current(std::ranges::prev(monitor.cend()));
+            } else {
+                assert(monitor != current_monitor());
+            }
+        }
+        monitor.remove(std::ranges::find(monitor, workspace));
+        _wor_mgr.unmanage(workspace.index());
+    }
+
 private:
     template<signals sig>
-    static inline constexpr const auto& _dispatch_observable(const State& state) noexcept
+    static inline constexpr auto _dispatch_observable(const State& state) noexcept -> const auto&
     {
         if constexpr (sig == current_workspace_update
                    || sig == current_monitor_update)
@@ -138,7 +168,7 @@ private:
     }
 
     template <signals sig>
-    static inline constexpr auto& _dispatch_observable(State& state) noexcept
+    static inline constexpr auto _dispatch_observable(State& state) noexcept -> auto&
     {
         const auto& o = State::_dispatch_observable<sig>(static_cast<const State&>(state));
         return const_cast<typename std::remove_cvref<decltype(o)>::type&>(o);

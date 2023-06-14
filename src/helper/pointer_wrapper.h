@@ -2,10 +2,13 @@
 #include <type_traits>
 #include <iterator>
 
-#define HELPER_POINTER_ITERATOR_WRAPPER(container) \
+#define HELPER_POINTER_ITERATOR_WRAPPER_DECLARE_ALIAS(container_type) \
 public: \
-    using iterator       = helper::pointer_iterator_wrapper<typename decltype(container)::iterator>; \
-    using const_iterator = helper::pointer_iterator_wrapper<typename decltype(container)::const_iterator>; \
+    using iterator       = helper::pointer_iterator_wrapper<container_type::iterator>; \
+    using const_iterator = helper::pointer_iterator_wrapper<container_type::const_iterator>; \
+
+#define HELPER_POINTER_ITERATOR_WRAPPER_DECLARE_EXTENSION(container) \
+public: \
     inline auto begin()        noexcept -> iterator \
     { return iterator(container.begin()); } \
     inline auto end()          noexcept -> iterator \
@@ -18,6 +21,12 @@ public: \
     { return const_iterator(container.cbegin()); } \
     inline auto cend()   const noexcept -> const_iterator \
     { return const_iterator(container.cend()); } \
+
+
+#define HELPER_POINTER_ITERATOR_WRAPPER(container) \
+public: \
+    HELPER_POINTER_ITERATOR_WRAPPER_DECLARE_ALIAS(typename decltype(container)) \
+    HELPER_POINTER_ITERATOR_WRAPPER_DECLARE_EXTENSION(container)
 
 namespace helper {
 
@@ -35,17 +44,16 @@ public:
     using pointer           = typename std::iterator_traits<Iterator>::value_type;
     using reference         = typename std::remove_pointer<typename std::iterator_traits<Iterator>::value_type>::type&;
 
-    pointer_iterator_wrapper() noexcept {};
-    pointer_iterator_wrapper(const Iterator& iter) : _iter(iter) {}
+    pointer_iterator_wrapper() noexcept = default;
+    pointer_iterator_wrapper(const Iterator& iter) noexcept : _iter(iter) {}
     template <std::convertible_to<Iterator> It>
-    pointer_iterator_wrapper(const pointer_iterator_wrapper<It>& iter) : _iter(iter.data()) {}
+    pointer_iterator_wrapper(const pointer_iterator_wrapper<It>& iter) noexcept : _iter(iter.data()) {}
 
     operator Iterator() const noexcept
     { return _iter; }
 
     auto data() noexcept -> Iterator&
     { return _iter; }
-
     auto data() const noexcept -> const Iterator&
     { return _iter; }
 
