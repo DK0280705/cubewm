@@ -183,7 +183,7 @@ void Window::_update_rect_fn() noexcept
 
 void Window::_update_focus_fn() noexcept
 {
-    if (!focused()) { // Not focused (focus())
+    if (focused()) {
         if (_do_not_focus) {
             logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
             window::send_take_focus(index());
@@ -192,7 +192,7 @@ void Window::_update_focus_fn() noexcept
             window::set_input_focus(index());
         }
         X11::ewmh::update_net_active_window(index());
-    } else { // Focused (unfocus())
+    } else {
         xcb_set_input_focus(X11::detail::conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::detail::main_window_id(),
                             XCB_CURRENT_TIME);
         X11::ewmh::update_net_active_window(XCB_NONE);

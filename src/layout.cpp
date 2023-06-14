@@ -78,7 +78,7 @@ void Layout::_update_rect_fn() noexcept
 
 void Layout::_update_focus_fn() noexcept
 {
-    if (!focused())
+    if (focused())
         _frame->focus();
     else
         _frame->unfocus();

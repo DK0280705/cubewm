@@ -36,9 +36,6 @@ static auto _get_timestamp(const Connection& conn) noexcept -> xcb_timestamp_t
 
     while ((event = xcb_wait_for_event(conn)))
         if ((event->response_type & 0x7F) == XCB_PROPERTY_NOTIFY) {
-            window::change_attributes(root_window_id(conn),
-                                      XCB_CW_EVENT_MASK,
-                                      std::span<const uint32_t, 0>{});
             return ((xcb_property_notify_event_t*)event)->time;
         } else free(event);
     std::unreachable();
@@ -150,6 +147,7 @@ void init(const X11::Connection& conn)
     // Try to acquire selection owner and replace current window manager if it's exist.
     _acquire_selection_owner(conn, _main_window, prev_owner);
     logger::debug("Selection owner acquired, main window: {:#x}", _main_window);
+    xcb_map_window(conn, _main_window);
 
     // Set _NET_SUPPORTING_WM_CHECK hints
     ewmh::update_net_supporting_wm_check(_main_window);

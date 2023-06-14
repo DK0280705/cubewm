@@ -11,6 +11,7 @@ void Window_list::add(Window& window)
 {
     logger::debug("Window list -> adding window: {:#x}", window.index());
 
+    if (!empty() && _list.back()->focused()) _list.back()->unfocus();
     _list.push_back(&window);
 }
 
@@ -38,7 +39,6 @@ Window::Window(unsigned int id, Window::Display_type dt) noexcept
     , _display_type(dt)
     , _layout_mark(Layout_mark(*this))
 {
-    assert(_frame);
 }
 
 bool Window::is_marked() const noexcept
@@ -81,6 +81,7 @@ void focus_last(Window_list& window_list)
 
 void try_focus_window(Window& window)
 {
+    if (window.focused()) return;
     auto& window_list = window.root<Workspace>().window_list();
     assert(!window_list.empty());
     if (window != window_list.current()->get()) {

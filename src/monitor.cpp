@@ -14,7 +14,7 @@ void Monitor::_update_rect_fn() noexcept
 
 void Monitor::_update_focus_fn() noexcept
 {
-    if (!focused()) {
+    if (focused()) {
         if (_current) _current->focus();
     } else {
         if (_current) _current->unfocus();

@@ -44,11 +44,9 @@ auto State::init(Connection& conn, X11::Server&) -> State&
     // First, load all monitors.
     X11::monitor::load_all(state);
     // Set current monitor to the first monitor.
-    state._current_monitor = &state.monitors().at(0);
+    state.current_monitor(state.monitors().at(0));
     // Set default workspace.
-    state._current_workspace = &state.workspaces().manage(0);
-    // Set current monitor children to the default workspace
-    state.current_monitor().add(state.current_workspace());
+    state.current_workspace(state.create_workspace(state.current_monitor()));
     // Update rect to update workspace rect.
     state.current_monitor().update_rect();
 

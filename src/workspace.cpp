@@ -30,7 +30,7 @@ void Workspace::_update_rect_fn() noexcept
 
 void Workspace::_update_focus_fn() noexcept
 {
-    if (!focused()) {
+    if (focused()) {
         if (const auto &winref = _window_list.current())
             winref->get().focus();
     } else {
