@@ -6,6 +6,8 @@
 #include "../config.h"
 #include "../logger.h"
 
+#include <algorithm>
+
 namespace X11::ewmh {
 
 void update_net_supported(std::span<xcb_atom_t> atoms)
@@ -80,6 +82,13 @@ void update_net_client_list(const Manager<::Window>& window_manager)
                             XCB_ATOM_WINDOW,
                             std::span{window_ids});
     logger::debug("EWMH -> updated _NET_CLIENT_LIST: {:#x}", fmt::join(window_ids, ", "));
+
+    window::change_property(X11::detail::root_window_id(),
+                            window::prop::replace,
+                            atom::_NET_CLIENT_LIST_STACKING,
+                            XCB_ATOM_WINDOW,
+                            std::span{window_ids});
+    logger::debug("EWMH -> updated _NET_CLIENT_LIST_STACKING: {:#x}", fmt::join(window_ids, ", "));
 }
 
 void update_net_number_of_desktops(const Manager<::Workspace>& workspace_manager)
@@ -114,4 +123,39 @@ void update_net_desktop_names(const Manager<::Workspace>& workspace_manager)
                             std::span{buffer.data(), buffer.size()});
     logger::debug("EWMH -> updated _NET_DESKTOP_NAMES: {}", fmt::join(names, ", "));
 }
+
+void update_net_wm_state_hidden(xcb_window_t window_id, bool hide)
+{
+    const xcb_atom_t atoms[] = { atom::_NET_WM_STATE_HIDDEN };
+    if (hide) {
+        window::change_property(window_id,
+                                window::prop::append,
+                                atom::_NET_WM_STATE_HIDDEN,
+                                XCB_ATOM_WINDOW,
+                                std::span{atoms});
+    } else {
+        xcb_grab_server(X11::detail::conn());
+        auto _ = memory::finally([] () { xcb_ungrab_server(X11::detail::conn()); });
+        auto prop = memory::c_own<xcb_get_property_reply_t>(
+            xcb_get_property_reply(
+                X11::detail::conn(),
+                xcb_get_property(X11::detail::conn(), false, window_id,
+                                 atom::_NET_WM_STATE,
+                                 XCB_GET_PROPERTY_TYPE_ANY, 0, 4096),
+                nullptr));
+        if (!prop || xcb_get_property_value_length(prop.get()) == 0) return;
+
+        auto atom_span = std::span<xcb_atom_t>{
+            (xcb_atom_t*)xcb_get_property_value(prop.get()),
+            (uint32_t)(xcb_get_property_value_length(prop.get()) / (prop->format / 8))
+        };
+        std::ranges::remove(atom_span, atoms[0]);
+        window::change_property(window_id,
+                                window::prop::append,
+                                atom::_NET_WM_STATE_HIDDEN,
+                                XCB_ATOM_WINDOW,
+                                atom_span);
+    }
+}
+
 }

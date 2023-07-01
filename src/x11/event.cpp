@@ -90,6 +90,23 @@ void handle(State& state, const Event& event)
     }
 }
 
+static std::unordered_map<xcb_window_t, uint32_t> _ignored_unmap_ids;
+void ignore_unmap(xcb_window_t window_id)
+{
+    _ignored_unmap_ids[window_id]++;
+}
+
+bool is_unmap_ignored(xcb_window_t window_id)
+{
+    if (_ignored_unmap_ids.contains(window_id)) {
+        auto& count = _ignored_unmap_ids.at(window_id);
+        --count;
+        if (count == 0) _ignored_unmap_ids.erase(window_id);
+        return true;
+    }
+    return false;
+}
+
 // Implementations for each event
 
 void _on_destroy_notify(State& state, const xcb_destroy_notify_event_t& event)
@@ -113,7 +130,10 @@ void _on_unmap_notify(State& state, const xcb_unmap_notify_event_t& event)
 
     if (win_mgr.contains(event.window)) {
         logger::debug("Unmap notify -> unmapping window: {:#x}", event.window);
+        if (is_unmap_ignored(event.window)) return;
         window::unmanage(event.window, state);
+        xcb_delete_property(state.conn(), event.window, atom::_NET_WM_DESKTOP);
+        xcb_delete_property(state.conn(), event.window, atom::_NET_WM_STATE);
     } else {
         logger::debug("Unmap notify -> ignoring unmanaged window: {:#x}", event.window);
         return;
@@ -125,10 +145,13 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
     auto& win_mgr = state.windows();
 
     if (const auto& winref = win_mgr[event.window]) {
-        logger::debug("Map request -> remapping managed window: {:#x}", event.window);
-        ::Window& window = winref->get();
-        xcb_map_window(state.conn(), event.window);
-        ::window::focus_window(window.root<Workspace>().window_list(), window);
+        auto& window    = winref->get();
+        auto& workspace = window.root<Workspace>();
+        if (workspace == state.current_workspace()) {
+            logger::debug("Map request -> remapping managed window: {:#x}", window.index());
+            xcb_map_window(state.conn(), window.index());
+            ::window::focus_window(workspace.window_list(), window);
+        }
     } else {
         window::manage(event.window, state);
         ::window::focus_last(state.current_workspace().window_list());
@@ -172,11 +195,9 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
 }
 
 // Only log for debug
-void _on_focus_out(State& state, const xcb_focus_out_event_t& event)
+void _on_focus_out(State&, const xcb_focus_out_event_t& event)
 {
 #ifndef NDEBUG
-    auto& win_mgr = state.windows();
-    std::string_view win_name = win_mgr.contains(event.event) ? win_mgr.at(event.event).name() : "";
     std::string_view detail = [&] {
         switch (event.detail) {
         case XCB_NOTIFY_DETAIL_ANCESTOR:
@@ -227,8 +248,8 @@ void _on_focus_out(State& state, const xcb_focus_out_event_t& event)
             break;
         }
     }();
-    logger::debug("Focus out -> window: {:#x}, name: {}, detail: {}, mode: {}",
-                  event.event, win_name, detail, mode);
+    logger::debug("Focus out -> window: {:#x}, detail: {}, mode: {}",
+                  event.event, detail, mode);
 #endif
 }
 
@@ -261,7 +282,7 @@ void _on_key_press(State& state, const xcb_key_press_event_t& event)
 #endif
     if (const auto& bindref = state.bindings()[keybind]) {
         logger::debug("Key press -> found binding for keybind");
-        bindref->get()(state);
+        bindref->get().execute(state);
     }
 }
 
@@ -271,7 +292,7 @@ void _on_key_release(State&, const xcb_key_release_event_t& event)
     Keybind keybind = XKB::create_keybind(event.detail, event.state);
     char keysym_name[32];
     xkb_keysym_get_name(keybind.keysym, keysym_name, sizeof(keysym_name));
-    logger::debug("Key press -> key: {}, mod: {}", keysym_name, keybind.modifiers);
+    logger::debug("Key release -> key: {}, mod: {}", keysym_name, keybind.modifiers);
 #endif
 }
 

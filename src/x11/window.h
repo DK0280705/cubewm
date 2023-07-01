@@ -11,8 +11,9 @@
 class State;
 class Workspace;
 
-struct Window::X11_property
+struct X11_window_property
 {
+    std::string           name;
     uint32_t              type{};
     std::string           role;
     xcb_icccm_wm_hints_t  wm_hints{};
@@ -36,19 +37,20 @@ static consteval auto prop_size() -> int
 
 class Connection;
 
-// Have a good time with this :)
-// let's call this Window builder.
-class Window : public ::Window
+class Window_impl final : public ::Window::Impl
 {
-    bool _do_not_focus;
-
-    void _update_rect_fn()  noexcept override;
-    void _update_focus_fn() noexcept override;
+    // Don't modify window inside implementation.
+    const Window&       _window;
+    X11_window_property _xprop;
+    bool                _do_not_focus;
 
 public:
-    explicit Window(Index id);
+    explicit Window_impl(const Window& window);
+    void update_rect()                      noexcept override;
+    void update_focus()                     noexcept override;
+    void update_state(Window::State wstate) noexcept override;
 
-    ~Window() noexcept override;
+    ~Window_impl() noexcept override;
 };
 
 namespace window {

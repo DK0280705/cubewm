@@ -35,16 +35,16 @@ public:
 
     inline auto tiling_layout() const -> Layout&
     {
-        if (const auto& lref = this->back()) {
-            return lref->get().get<Layout>();
+        if (!empty() || size() == 2) {
+            return back().get<Layout>();
         } else throw Existence_error("Tiling layout not exist");
     }
 
-    inline auto floating_layout() const noexcept -> Layout&
+    inline auto floating_layout() const -> Layout&
     {
         // Floating layout is initialised at constructor
-        assert(this->front());
-        return this->front()->get().get<Layout>();
+        assert(!empty());
+        return front().get<Layout>();
     }
 
     inline auto monitor() const noexcept -> Monitor&

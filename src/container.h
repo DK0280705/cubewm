@@ -51,9 +51,9 @@ public:
     }
 
     virtual ~Container() noexcept = default;
-
-    // A container is special, therefore no duplicates.
-    // To be equal, means it's the same object.
-    friend inline bool operator==(const Container& rhs, const Container& lhs) noexcept
-    { return &rhs == &lhs; }
 };
+
+// A container is special, therefore no duplicates.
+// To be equal, means it's the same object.
+inline bool operator==(const Container& rhs, const Container& lhs) noexcept
+{ return &rhs == &lhs; }

@@ -12,15 +12,14 @@
 
 class Window;
 class Workspace;
-class Window_frame;
 
 class Window_list
 {
     std::vector<Window*> _list;
 
-    public:
-    inline auto current() const noexcept -> std::optref<Window>
-    { return _list.empty() ? std::nullopt : std::optref<Window>(*_list.back()); }
+public:
+    inline auto current() const noexcept -> Window&
+    { return *_list.back(); }
 
     inline bool empty() const noexcept
     { return _list.empty(); }
@@ -33,8 +32,8 @@ class Window_list
     void remove(const_iterator it);
 };
 
-class Window : public Leaf<Container>
-             , public Managed<unsigned int>
+class Window final : public Leaf<Container>
+                   , public Managed<unsigned int>
 {
 public:
     enum class Display_type
@@ -43,55 +42,76 @@ public:
         Wayland,
     };
 
+    enum class State {
+        Normal,
+        Minimized,
+        Maximized,
+    };
+
+    enum class Placement_mode
+    {
+        Tiling,
+        Floating,
+        Sticky, //soon
+    };
+
     class Layout_mark
     {
-        Layout::Type _type;
-        bool         _marked;
-        Window&      _window;
+    public:
+        using Type = Layout::Containment_type;
+    private:
+        Type    _type;
+        Window& _window;
         friend class Window;
 
         constexpr explicit Layout_mark(Window& window) noexcept
-            : _type(Layout::Type::Floating)
-            , _marked(false)
-            , _window(window) // any type
+            : _type(Layout::Containment_type::Floating)
+            , _window(window)
         {}
     public:
         inline auto window() const noexcept -> Window&
         { return _window; }
-        inline auto type()   const noexcept -> Layout::Type
+        inline auto type()   const noexcept -> Type
         { return _type; }
     };
 
-    // defined in x11/window.h
-    struct X11_property;
+    class Impl
+    {
+    protected:
+        Impl() = default;
+
+    public:
+        virtual void update_rect()              noexcept = 0;
+        virtual void update_focus()             noexcept = 0;
+        virtual void update_state(Window::State) noexcept = 0;
+        virtual ~Impl() noexcept = default;
+    };
 
 private:
-    std::string                 _name;
-    Display_type                _display_type;
-    Layout_mark                 _layout_mark;
-    memory::owner<Window_frame> _frame;
-    memory::owner<X11_property> _xprop;
+    Display_type        _display_type;
+    Window::State       _window_state;
+    Placement_mode      _placement_mode;
+    Layout_mark         _layout_mark;
+    memory::owner<Impl> _impl;
+
+    void _update_rect_fn()  noexcept override;
+    void _update_focus_fn() noexcept override;
 
 public:
-    /**
-     * Set window name
-     * @param name
-     */
-    inline void name(const std::string& name) noexcept
-    { _name = name; }
-
-    /**
-     * Get window name
-     * @return
-     */
-    inline auto name() const noexcept -> std::string_view
-    { return _name; }
-
-
     // Returns either X11 or Wayland
     inline auto display_type() const noexcept -> Display_type
     {
         return _display_type;
+    }
+
+    inline auto state() const noexcept -> Window::State
+    {
+        return _window_state;
+    }
+
+    inline auto placement_mode() const noexcept -> Placement_mode
+    {
+        return _placement_mode;
     }
 
     // Get layout mark
@@ -100,42 +120,50 @@ public:
         return is_marked() ? std::optional(_layout_mark) : std::nullopt;
     }
     // Mark window as layout
-    inline void mark_layout(Layout::Type lt) noexcept
+    inline void mark_layout(Layout_mark::Type lt) noexcept
     {
-        _layout_mark._type   = lt;
-        _layout_mark._marked = true;
+        assert(lt != Layout_mark::Type::Floating);
+        _layout_mark._type = lt;
     }
     // Unmark window
     inline void unmark_layout() noexcept
     {
-        _layout_mark._marked = false;
+        _layout_mark._type = Layout_mark::Type::Floating;
     }
-
-    // Returns window frame
-    inline auto frame() const noexcept -> Window_frame&
-    {
-        return *_frame;
-    }
-
-    inline auto xprop() const noexcept -> X11_property&
-    {
-        assert(_display_type == Display_type::X11);
-        return *_xprop;
-    }
-
-protected:
-    void _fill_xprop(memory::owner<X11_property> xprop) noexcept;
-
-    void _fill_frame(memory::owner<Window_frame> frame) noexcept;
-
-    Window(Index id, Display_type dt) noexcept;
 
 public:
+    Window(Index id, Display_type dt);
+
     /**
      * @brief Check if window is marked as layout.
      * @return bool
      */
     bool is_marked() const noexcept;
+
+    /**
+     * @brief Set window to its normal state.
+     * Show window if its minimized, or return window to its place from maximize.
+     */
+    void normalize() noexcept;
+    /**
+     * @brief Same as normalize(), but tiling.
+     */
+     void set_tiling() noexcept;
+     /**
+      * @brief Same as normalize(), but floating.
+      */
+     void set_floating() noexcept;
+
+    /**
+     * @brief Set window minimized.
+     */
+    void minimize() noexcept;
+
+    /**
+     * @brief Set window to fullscreen.
+     * Yes, maximize here means fullscreen.
+     */
+    void maximize() noexcept;
 
     ~Window() noexcept override;
 };
@@ -179,7 +207,6 @@ void try_focus_window(Window &window);
  */
 void remove_window(Window_list &window_list, Window &window);
 
-
 /**
  * @brief Move window to workspace.
  *
@@ -204,5 +231,7 @@ void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark);
  */
 void purge_and_reconfigure(Window &window);
 
+// TODO: DELETE THIS
+// Find a better way to hide implementation.
 bool purge_sole_node(Node<Container> &node);
 } // namespace window

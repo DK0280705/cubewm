@@ -1,18 +1,19 @@
 #include "layout.h"
 #include "logger.h"
-#include "x11/frame.h"
+#include "x86intrin.h"
 
-static constexpr int _fraction(std::size_t size, float length)
+static auto _reciprocal(float x) -> float
 {
-    const float frac = 1.0f / static_cast<float>(size);
-    return (int)std::round(frac * length);
+#if defined(__x86_64__) or defined(__i386__)
+    float r = _mm_cvtss_f32(_mm_rcp_ss(_mm_set_ss(x)));
+    return r;
+#else
+    return 1/x;
+#endif
 }
 
-Layout::Layout(Type type)
+Layout::Layout(Containment_type type)
     : _type(type)
-    #ifndef USE_WAYLAND
-    , _frame(new X11::Layout_frame(*this))
-    #endif
 {}
 
 static void _update_rect_horizontal(Layout& layout)
@@ -22,7 +23,7 @@ static void _update_rect_horizontal(Layout& layout)
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     int next_pos_x    = rect.pos.x;
-    const int f_width = _fraction(layout.size(), (float)rect.size.x);
+    const int f_width = std::round(_reciprocal((float)layout.size()) * (float)rect.size.x);
     for (auto& child : layout) {
         child.rect({
             { next_pos_x, rect.pos.y  },
@@ -39,7 +40,7 @@ static void _update_rect_vertical(Layout& layout)
                   rect.pos.x, rect.pos.y, rect.size.x, rect.size.y);
 
     int next_pos_y     = rect.pos.y;
-    const int f_height = _fraction(layout.size(), (float)rect.size.y);
+    const int f_height = std::round(_reciprocal((float)layout.size()) * (float)rect.size.y);
     for (auto& child : layout) {
         child.rect({
             { rect.pos.x, next_pos_y },
@@ -64,13 +65,13 @@ static void _update_rect_tabbed(Layout& layout)
 void Layout::_update_rect_fn() noexcept
 {
     switch(_type) {
-    case Type::Horizontal:
+    case Containment_type::Horizontal:
         return _update_rect_horizontal(*this);
-    case Type::Vertical:
+    case Containment_type::Vertical:
         return _update_rect_vertical(*this);
-    case Type::Tabbed:
+    case Containment_type::Tabbed:
         return _update_rect_tabbed(*this);
-    case Type::Floating:
+    case Containment_type::Floating:
         return; // Useless, size does not matter here.
     default: break; // silence
     }
@@ -78,10 +79,6 @@ void Layout::_update_rect_fn() noexcept
 
 void Layout::_update_focus_fn() noexcept
 {
-    if (focused())
-        _frame->focus();
-    else
-        _frame->unfocus();
 }
 
 Layout::~Layout() noexcept

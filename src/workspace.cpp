@@ -11,7 +11,7 @@ Workspace::Workspace(const Index id)
     , _name(std::to_string(id))
     , _focused_layout(nullptr)
 {
-    auto* floating_layout = new Layout(Layout::Type::Floating);
+    auto* floating_layout = new Layout(Layout::Containment_type::Floating);
     this->add(*floating_layout);
 }
 
@@ -31,11 +31,11 @@ void Workspace::_update_rect_fn() noexcept
 void Workspace::_update_focus_fn() noexcept
 {
     if (focused()) {
-        if (const auto &winref = _window_list.current())
-            winref->get().focus();
+        if (!_window_list.empty())
+            _window_list.current().focus();
     } else {
-        if (const auto& winref = _window_list.current())
-            winref->get().unfocus();
+        if (!_window_list.empty())
+            _window_list.current().unfocus();
     }
 }
 

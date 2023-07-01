@@ -8,6 +8,7 @@ uint32_t Timestamp::_time = 0;
 
 static void _assign_default_bindings(Manager<Binding>& manager)
 {
+    using namespace binding;
     // Mod4 means Windows key in many keyboards.
     // Mod4 + arrow
     manager.manage<Move_focus>({XKB_KEY_Left,  mod_mask::mod4}, Direction::Left);
@@ -25,8 +26,22 @@ static void _assign_default_bindings(Manager<Binding>& manager)
     // Mod4 + h
     // Mod4 + t
     // Mod4 + space
-    manager.manage<Change_layout_type>({XKB_KEY_v, mod_mask::mod4}, Layout::Type::Vertical);
-    manager.manage<Change_layout_type>({XKB_KEY_h, mod_mask::mod4}, Layout::Type::Horizontal);
+    manager.manage<Change_layout_type>({XKB_KEY_v, mod_mask::mod4}, Layout::Containment_type::Vertical);
+    manager.manage<Change_layout_type>({XKB_KEY_h, mod_mask::mod4}, Layout::Containment_type::Horizontal);
+
+    // Mod4 + 1
+    // ...
+    manager.manage<Change_workspace>({XKB_KEY_1, mod_mask::mod4}, 0);
+    manager.manage<Change_workspace>({XKB_KEY_2, mod_mask::mod4}, 1);
+    manager.manage<Change_workspace>({XKB_KEY_3, mod_mask::mod4}, 2);
+    manager.manage<Change_workspace>({XKB_KEY_4, mod_mask::mod4}, 3);
+    manager.manage<Change_workspace>({XKB_KEY_5, mod_mask::mod4}, 4);
+    manager.manage<Change_workspace>({XKB_KEY_6, mod_mask::mod4}, 5);
+    manager.manage<Change_workspace>({XKB_KEY_7, mod_mask::mod4}, 6);
+    manager.manage<Change_workspace>({XKB_KEY_8, mod_mask::mod4}, 7);
+    manager.manage<Change_workspace>({XKB_KEY_9, mod_mask::mod4}, 8);
+    manager.manage<Change_workspace>({XKB_KEY_0, mod_mask::mod4}, 9);
+
 }
 
 State::State(Connection &conn)
@@ -47,6 +62,7 @@ auto State::init(Connection& conn, X11::Server&) -> State&
     state.current_monitor(state.monitors().at(0));
     // Set default workspace.
     state.current_workspace(state.create_workspace(state.current_monitor()));
+    state.current_workspace().focus();
     // Update rect to update workspace rect.
     state.current_monitor().update_rect();
 
@@ -79,7 +95,7 @@ void State::change_workspace(Workspace& workspace) noexcept
     if (workspace.monitor() != current_monitor()) {
         current_monitor().unfocus();
         current_monitor(workspace.monitor());
-        if (current_monitor().current()->get() != workspace)
+        if (current_monitor().current() != workspace)
             current_monitor().current(std::ranges::find(current_monitor(), workspace));
         current_monitor().focus();
         notify<signals::current_monitor_update>();

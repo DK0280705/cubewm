@@ -33,7 +33,9 @@ auto Server::init(::Connection& conn) -> Server&
     state.connect<State::current_workspace_update>([](const State& state) {
         ewmh::update_net_current_desktop(state.current_workspace());
         const auto& window_list = state.current_workspace().window_list();
-        uint32_t window_id = window_list.empty() ? XCB_NONE : window_list.current()->get().index();
+        uint32_t window_id = window_list.empty()
+                           ? XCB_NONE
+                           : window_list.current().index();
         ewmh::update_net_active_window(window_id);
     });
     state.connect<State::window_manager_update>(ewmh::update_net_client_list);

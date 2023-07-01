@@ -54,9 +54,10 @@ private:
     Observer_container _observers;
 
 public:
-    inline void connect(Key&& key, Observer observer)
+    template <typename Func>
+    inline void connect(Key&& key, Func&& func)
     {
-        _observers[std::forward<Key>(key)].emplace_back(std::move(observer));
+        _observers[std::forward<Key>(key)].emplace_back(std::forward<Func>(func));
     }
 
     inline void notify(Key&& key) const

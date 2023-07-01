@@ -47,6 +47,6 @@ auto name(const X11::Connection& conn, const xcb_atom_t atom) -> std::string
             xcb_get_atom_name(conn, atom),
             nullptr));
     if (!reply) throw std::runtime_error("Failed to get atom name");
-    return std::string(xcb_get_atom_name_name(reply.get()));
+    return std::string(xcb_get_atom_name_name(reply.get()), xcb_get_atom_name_name_length(reply.get()));
 }
 }

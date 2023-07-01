@@ -17,10 +17,5 @@ class Connection : public X11::Connection
                  , public helper::Init_once<Connection>
 {
 public:
-    Connection()
-        : X11::Connection()
-#ifdef USE_WAYLAND
-        , Wayland::Connection()
-#endif
-    {}
+    Connection() = default;
 };

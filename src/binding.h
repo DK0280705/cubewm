@@ -13,10 +13,10 @@ protected:
         : Managed(k)
     {}
 public:
-    virtual void operator()(State& state) const noexcept = 0;
-    virtual ~Binding() = default;
+    virtual void execute(State& state) const noexcept = 0;
 };
 
+namespace binding {
 class Move_focus : public Binding
 {
     Direction _dir;
@@ -26,7 +26,7 @@ public:
         , _dir(dir)
     {}
 
-    void operator()(State& state) const noexcept override;
+    void execute(State& state) const noexcept override;
 };
 
 class Move_container : public Binding
@@ -38,19 +38,32 @@ public:
         , _dir(dir)
     {}
 
-    void operator()(State& state) const noexcept override;
+    void execute(State& state) const noexcept override;
 };
 
 class Change_layout_type : public Binding
 {
-    Layout::Type _change_to;
+    Layout::Containment_type _change_to;
 public:
-    Change_layout_type(const Index& k, Layout::Type change_to) noexcept
+    Change_layout_type(const Index& k, Layout::Containment_type change_to) noexcept
         : Binding(k)
         , _change_to(change_to)
     {}
 
-    void operator()(State& state) const noexcept override;
+    void execute(State& state) const noexcept override;
 };
+
+class Change_workspace : public Binding
+{
+    uint32_t _workspace_id;
+public:
+    Change_workspace(const Index& k, uint32_t index) noexcept
+        : Binding(k)
+        , _workspace_id(index)
+    {}
+
+    void execute(State& state) const noexcept override;
+};
+} //namespace binding
 
 // If we need custom parameter so desperately, we can use buffer pattern

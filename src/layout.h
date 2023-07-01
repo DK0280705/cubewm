@@ -2,8 +2,6 @@
 #include "container.h"
 #include "node.h"
 
-#include "helper/memory.h"
-
 class Layout_frame;
 
 class Layout : public Node<Container>
@@ -12,44 +10,43 @@ class Layout : public Node<Container>
     void _update_focus_fn() noexcept override;
 
 public:
-    enum class Type
+    enum class Containment_type
     {
+        Floating,
         Horizontal,
         Vertical,
         Tabbed,
-        Floating
     };
 
 private:
-    Type                        _type;
-    memory::owner<Layout_frame> _frame;
+    Containment_type _type;
 
 public:
-    inline Type type() const noexcept
+    inline auto type() const noexcept -> Containment_type
     { return _type; }
 
-    inline void type(const Layout::Type& type) noexcept
+    inline void type(const Containment_type& type) noexcept
     {
         _type = type;
         update_rect();
     }
 
 public:
-    explicit Layout(Type type);
+    explicit Layout(Containment_type type);
 
     ~Layout() noexcept override;
 };
 
-inline constexpr auto layout_type_to_str(Layout::Type type) -> std::string_view
+inline constexpr auto layout_type_to_str(Layout::Containment_type type) -> std::string_view
 {
     switch (type) {
-    case Layout::Type::Horizontal:
+    case Layout::Containment_type::Horizontal:
         return "Horizontal";
-    case Layout::Type::Vertical:
+    case Layout::Containment_type::Vertical:
         return "Vertical";
-    case Layout::Type::Tabbed:
+    case Layout::Containment_type::Tabbed:
         return "Tabbed";
-    case Layout::Type::Floating:
+    case Layout::Containment_type::Floating:
         return "Floating";
     }
     return "bruh";

@@ -98,14 +98,12 @@ public:
 public:
     /**
      * @brief Manage a window
-     * @tparam Window_t Type derived from Window class
      * @param window_id
      * @return Reference to object derived from Window class.
      */
-    template<std::derived_from<Window> Window_t>
-    inline auto manage_window(const uint32_t window_id) -> Window_t&
+    inline auto manage_window(const uint32_t window_id, Window::Display_type type) -> Window&
     {
-        Window_t& window = _win_mgr.manage<Window_t>(window_id);
+        Window& window = _win_mgr.manage<Window>(window_id, type);
         window::move_to_workspace(window, current_workspace());
         window::add_window(current_workspace().window_list(), window);
         return window;
@@ -137,11 +135,12 @@ public:
     inline void destroy_workspace(Manager<Workspace>::Key workspace_id)
     {
         Workspace& workspace = _wor_mgr.at(workspace_id);
-        assert_debug(workspace.empty(), "Workspace must be empty to safely destroy");
+        assert_debug(workspace.size() == 1 && workspace.floating_layout().empty(),
+                     "Workspace must be empty to safely destroy");
         assert_debug(!workspace.focused(), "Workspace must not be focused");
         Monitor& monitor = workspace.monitor();
         assert_debug(current_workspace() != workspace, "Can't destroy current workspace");
-        if (monitor.current()->get() == workspace) {
+        if (monitor.current() == workspace) {
             if (monitor.size() > 1) {
                 monitor.current(std::ranges::prev(monitor.cend()));
             } else {
@@ -175,11 +174,11 @@ private:
     }
 
 public:
-    template<signals sig, typename Observer>
-    constexpr void connect(Observer observer) noexcept
+    template<signals sig, typename Func>
+    constexpr void connect(Func&& func) noexcept
     {
         auto& o = State::_dispatch_observable<sig>(*this);
-        o.connect(sig, observer);
+        o.connect(sig, std::forward<Func>(func));
     }
 
     template <signals sig>

@@ -6,291 +6,316 @@
 #include "state.h"
 #include "window.h"
 
-//TODO: FIX ALL OF THIS MESS
-
-template<Direction prev, Direction next> requires(prev != next)
-static auto _get_iter_by_direction(Node<Container>& parent, Node<Container>::const_iterator child_it, Direction dir)
-    -> Node<Container>::const_iterator
-{
-    switch(dir) {
-        case prev: return std::ranges::prev(child_it);
-        case next: return std::ranges::next(child_it);
-        default: return parent.end();
-    }
-}
-
-static auto _get_iter_by_direction(Layout& parent, Node<Container>::const_iterator child_it, Direction dir) noexcept
-    -> Node<Container>::const_iterator
-{
-    switch (parent.type()) {
-    case Layout::Type::Horizontal:
-        return _get_iter_by_direction<Direction::Left, Direction::Right>(parent, child_it, dir);
-    case Layout::Type::Vertical:
-        return _get_iter_by_direction<Direction::Up, Direction::Down>(parent, child_it, dir);
-    case Layout::Type::Tabbed:
-        return _get_iter_by_direction<Direction::Left, Direction::Right>(parent, child_it, dir);
-    default:
-        return parent.cend();
-    }
-}
-static bool _type_direction_compatible(Layout::Type type, Direction dir)
-{
-    switch (dir) {
-    case Direction::Left:
-    case Direction::Right:
-        if (type == Layout::Type::Horizontal
-         || type == Layout::Type::Tabbed) return true;
-        break;
-    case Direction::Up:
-    case Direction::Down:
-        if (type == Layout::Type::Vertical) return true;
-        break;
-    }
-    return false;
-}
-
-static auto _get_type_direction_compatible_node_pair(Node<Container>& node, Direction dir) noexcept
-    -> std::optional<std::pair<std::reference_wrapper<Layout>, Node<Container>::const_iterator>>
-{
-    if (!node.parent() || node.parent()->get().is_root())
-        return std::nullopt;
-    Node<Container>* current = &node;
-    Layout*          parent  = &node.parent()->get().get<Layout>();
-
-    for (int i = 0; ; ++i) {
-        logger::debug("Get node -> iteration: {}", i);
-
-        if (!_type_direction_compatible(parent->type(), dir)) {
-            if (parent->parent() && !parent->parent()->get().is_root()) {
-                current = parent;
-                parent  = &parent->parent()->get().get<Layout>();
-            } else return std::nullopt;
-        } else {
-            if (parent->size() == 1) return std::nullopt;
-            else return std::optional(std::pair<std::reference_wrapper<Layout>, Node<Container>::const_iterator> (*parent, std::ranges::find(*parent, *current)));
-        }
-    }
-}
-
-static Layout::Type _get_direction_compatible_layout_type(Direction dir)
-{
-    switch (dir) {
-    case Direction::Up:
-    case Direction::Down:
-        return Layout::Type::Vertical;
-    case Direction::Left:
-    case Direction::Right:
-        return Layout::Type::Horizontal;
-    }
-    return Layout::Type::Floating; //silent compiler
-}
-
-void Move_focus::operator()(State& state) const noexcept
-{
-    const auto& layref = state.current_workspace().focused_layout();
-    Node<Container>* focused_object;
-    if (layref) focused_object = &layref->get();
-    else {
-        if (const auto& winref = state.current_workspace().window_list().current())
-            focused_object = &winref->get();
-        else return;
-    }
-
-    logger::debug("Move focus -> direction: {}", direction_to_str(_dir));
-
-    Node<Container>& object = *focused_object;
-
-    assert(object.parent());
-    auto pair_noderef = _get_type_direction_compatible_node_pair(object, _dir);
-    if (pair_noderef) {
-        auto&[parent, child_it] = pair_noderef.value();
-
-        auto it = _get_iter_by_direction(parent, child_it, _dir);
-        if (it == parent.get().cend()) {
-            switch (_dir) {
-            case Direction::Up:
-            case Direction::Left:
-                it = std::ranges::prev(parent.get().cend());
-                break;
-            case Direction::Down:
-            case Direction::Right:
-                it = parent.get().cbegin();
-                break;
-            }
-        }
-        window::focus_window(state.current_workspace().window_list(), get_front_leaf(*it).get<Window>());
-    }
-}
-
+namespace binding {
 // debug only
+// Will output single cryptic string
+// TODO: Write a better algorithm to display tree on terminal.
 #ifndef NDEBUG
-static void _get_tree_numbers(std::string& str, const Node<Container>& node)
+
+static void _tree_debug(std::string &str, const Node<Container> &node)
 {
     uint32_t i = 0;
     if (!node.empty()) str += "-> ";
-    for (const auto& c : node) {
+    for (const auto &c: node) {
         if (!c.is_leaf() && !c.is_root()) {
-            const Layout& layout = c.get<Layout>();
+            const auto &layout = c.get<Layout>();
             switch (layout.type()) {
-            case Layout::Type::Horizontal:
-                str += 'H'; break;
-            case Layout::Type::Vertical:
-                str += 'V'; break;
-            case Layout::Type::Tabbed:
-                str += 'T'; break;
-            default: break;
+                case Layout::Containment_type::Horizontal:
+                    str += 'H';
+                    break;
+                case Layout::Containment_type::Vertical:
+                    str += 'V';
+                    break;
+                case Layout::Containment_type::Tabbed:
+                    str += 'T';
+                    break;
+                default:
+                    break;
             }
         } else if (c.is_leaf()) str += 'W';
         str += std::to_string(i);
         str += ' ';
-        _get_tree_numbers(str, c);
+        _tree_debug(str, c);
         i++;
     }
     if (!node.empty()) str += " _ ";
 }
+
 #endif
 
-static void _move_to_nearest_neighbour(Window& window,
-                                       Layout& parent,
-                                       Node<Container>::const_iterator parent_child_it,
-                                       Node<Container>::const_iterator neighbour_it,
-                                       Direction dir) noexcept
+template<Direction prev, Direction next>
+requires(prev != next)
+static auto _get_node_pos_by_direction_impl(const Node<Container> &node, Direction dir) noexcept
+-> Node<Container>::const_iterator
 {
-    Node<Container>& neighbour = *neighbour_it;
-    window.unmark_layout();
-    if (neighbour.is_leaf()) {
-        if (auto lm = neighbour.get<Window>().layout_mark()) {
-            window::move_to_marked_window(window, lm.value());
-        } else {
-            switch (dir) {
-            case Direction::Up:
-            case Direction::Left:
-            {
-                if (parent == window.parent()->get()) {
-                    parent.shift_backward(parent_child_it);
-                } else {
-                    // Prevent iterator invalidation
-                    window.parent()->get().remove(window);
-                    parent.insert(parent_child_it, window);
-                    window::purge_sole_node(*parent_child_it);
-                }
-                parent.update_rect();
-                break;
-            }
-            case Direction::Down:
-            case Direction::Right:
-            {
-                if (parent == window.parent()->get()) {
-                    parent.shift_forward(parent_child_it);
-                } else {
-                    // Prevent iterator invalidation
-                    window.parent()->get().remove(window);
-                    parent.insert(neighbour_it, window);
-                    window::purge_sole_node(*parent_child_it);
-                }
-                parent.update_rect();
-                break;
-            }
-            }
-        }
-    } else {
-        window::purge_and_reconfigure(window);
-        neighbour.add(window);
-        neighbour.update_rect();
+    const auto &parent = node.parent_unsafe().get<Layout>();
+    const auto node_it = std::ranges::find(parent, node);
+
+    switch (dir) {
+        case prev:
+            return std::ranges::prev(node_it);
+        case next:
+            return std::ranges::next(node_it);
+        default:
+            return parent.end();
     }
 }
 
-static void _move_to_top_node(Window& window, Workspace& workspace, Direction dir) noexcept
+static auto _get_node_pos_by_direction(const Node<Container> &node, Direction dir) noexcept
+-> Node<Container>::const_iterator
 {
-    window::purge_and_reconfigure(window);
-    Layout& top  = workspace.tiling_layout();
-    auto    type = _get_direction_compatible_layout_type(dir);
-    if (top.type() == type) {
-        top.add(window);
-    } else {
-        Layout* layout = new Layout(type);
-        workspace.remove(top);
-        switch (dir) {
+    assert(node.parent());
+    assert(!node.parent_unsafe().is_root());
+    const auto &parent = node.parent_unsafe().get<Layout>();
+
+    switch (parent.type()) {
+        case Layout::Containment_type::Horizontal:
+        case Layout::Containment_type::Tabbed:
+            return _get_node_pos_by_direction_impl<Direction::Left, Direction::Right>(node, dir);
+        case Layout::Containment_type::Vertical:
+            return _get_node_pos_by_direction_impl<Direction::Up, Direction::Down>(node, dir);
+        default:
+            return parent.cend();
+    }
+}
+
+static bool _is_layout_type_direction_compatible(Layout::Containment_type type, Direction dir)
+{
+    switch (dir) {
+        case Direction::Left:
+        case Direction::Right:
+            return (type == Layout::Containment_type::Horizontal
+                    || type == Layout::Containment_type::Tabbed);
+        case Direction::Up:
+        case Direction::Down:
+            return (type == Layout::Containment_type::Vertical);
+    }
+    std::unreachable();
+}
+
+static auto _find_direction_compatible_node(Node<Container> &node, Direction dir) noexcept
+-> std::optref<Node<Container>>
+{
+    assert(node.parent());
+    assert(!node.parent_unsafe().is_root());
+    auto *current = &node;
+
+    // If the implementation consistent, it will only loop 2 times max.
+    while (true) {
+        auto &parent = current->parent()->get().get<Layout>();
+        if (!_is_layout_type_direction_compatible(parent.type(), dir)) {
+            if (parent.parent() && !parent.parent()->get().is_root()) {
+                current = &parent;
+            } else return std::nullopt;
+        } else {
+            if (parent.size() == 1) return std::nullopt;
+            else return *current;
+        }
+    }
+}
+
+static auto _get_current_focused_container(State &state) -> std::optref<Node<Container>>
+{
+    if (const auto &layref = state.current_workspace().focused_layout())
+        return layref->get();
+    else if (!state.current_workspace().window_list().empty())
+        return state.current_workspace().window_list().current();
+    else return std::nullopt;
+}
+
+// Only use this function to improve readability
+static inline void _direction_action(auto &&prev_fn, auto &&next_fn, Direction dir)
+{
+    switch (dir) {
         case Direction::Up:
         case Direction::Left:
-            layout->add(window);
-            layout->add(top);
+            prev_fn();
             break;
         case Direction::Down:
         case Direction::Right:
-            layout->add(top);
-            layout->add(window);
+            next_fn();
             break;
+        default:
+            std::unreachable();
+    }
+};
+
+void Move_focus::execute(State &state) const noexcept
+{
+    const auto &objref = _get_current_focused_container(state);
+    if (!objref.has_value()) return;
+
+    Node<Container> &object = objref->get();
+
+    if (const auto &noderef = _find_direction_compatible_node(object, _dir)) {
+        const auto &node = noderef->get();
+        const auto &parent = node.parent_unsafe();
+
+        auto adj_it = _get_node_pos_by_direction(node, _dir);
+        if (adj_it == parent.cend()) {
+            switch (_dir) {
+                case Direction::Up:
+                case Direction::Left:
+                    adj_it = std::ranges::prev(parent.cend());
+                    break;
+                case Direction::Down:
+                case Direction::Right:
+                    adj_it = parent.cbegin();
+                    break;
+            }
         }
+        window::focus_window(state.current_workspace().window_list(), get_front_leaf(*adj_it).get<Window>());
+    }
+}
+
+static void _move_to_adjacent_node(Window &window, Node<Container> &node, Direction dir) noexcept
+{
+    assert(node.parent());
+    auto &parent = node.parent_unsafe().get<Layout>();
+    auto node_it = std::ranges::find(parent, node);
+
+    // Unmark window if marked.
+    window.unmark_layout();
+
+    // Get adjacent node according to direction.
+    auto adj_it = _get_node_pos_by_direction(node, dir);
+
+    // If adjacent node not available, send window to the begin/end of its parent node.
+    if (adj_it == parent.cend()) {
+        if (parent.type() == window.parent_unsafe().get<Layout>().type())
+            return;
+        // Purge window parents first before moving.
+        window::purge_and_reconfigure(window);
+        _direction_action(
+                [&]() { parent.insert(parent.begin(), window); },
+                [&]() { parent.add(window); },
+                dir);
+        parent.update_rect();
+
+        // This means, adjacent node is available
+    } else if (adj_it->is_leaf()) {
+        // Adjacent node is a window.
+        if (auto lm = adj_it->get<Window>().layout_mark()) {
+            // Create a new layout with marked window.
+            window::move_to_marked_window(window, lm.value());
+        } else {
+            if (parent == window.parent_unsafe()) {
+                _direction_action(
+                        [&]() { parent.shift_backward(node_it); },
+                        [&]() { parent.shift_forward(node_it); },
+                        dir);
+            } else {
+                window.parent_unsafe().remove(window);
+                _direction_action(
+                        [&]() { parent.insert(node_it, window); },
+                        [&]() { parent.insert(adj_it, window); },
+                        dir);
+                window::purge_sole_node(*node_it);
+            }
+            parent.update_rect();
+        }
+    } else {
+        // Adjacent node is a layout here. Put window into it.
+        window::purge_and_reconfigure(window);
+        adj_it->add(window);
+        adj_it->update_rect();
+    }
+}
+
+static inline auto _get_inverse_layout_type(Layout::Containment_type type) -> Layout::Containment_type
+{
+    switch (type) {
+        case Layout::Containment_type::Horizontal:
+        case Layout::Containment_type::Tabbed:
+            return Layout::Containment_type::Vertical;
+        case Layout::Containment_type::Vertical:
+            return Layout::Containment_type::Horizontal;
+        default:
+            throw std::logic_error("Impossible");
+    }
+}
+
+static void _move_to_top_node(Window &window, Workspace &workspace, Direction dir) noexcept
+{
+    // Purge window from its parent first
+    window::purge_and_reconfigure(window);
+
+    // Get the top tiling layout.
+    Layout &top_layout = workspace.tiling_layout();
+    // If layout type and direction compatible, simply add the window.
+    if (_is_layout_type_direction_compatible(top_layout.type(), dir)) {
+        top_layout.add(window);
+        // If top layout size is only one, better change its type.
+    } else if (top_layout.size() == 1) {
+        top_layout.type(_get_inverse_layout_type(top_layout.type()));
+        _direction_action(
+                [&]() { top_layout.insert(top_layout.begin(), window); },
+                [&]() { top_layout.add(window); },
+                dir);
+    } else {
+        // Silent this stupid warning, if new fails, just let the program go boom.
+        auto *layout = new Layout(_get_inverse_layout_type(top_layout.type()));
+        workspace.remove(top_layout);
+
+        switch (dir) {
+            case Direction::Up:
+            case Direction::Left:
+                layout->add(window);
+                layout->add(top_layout);
+                break;
+            case Direction::Down:
+            case Direction::Right:
+                layout->add(top_layout);
+                layout->add(window);
+                break;
+        }
+
         workspace.add(*layout);
     }
     workspace.update_rect();
 }
 
-void Move_container::operator()(State& state) const noexcept
+void Move_container::execute(State &state) const noexcept
 {
-    if (const auto& layref = state.current_workspace().focused_layout()) {
-        Layout& layout = layref->get();
-        if (layout.parent() && layout.parent()->get().is_root()) return;
+    if (const auto &layref = state.current_workspace().focused_layout()) {
+        Layout &layout = layref->get();
 
-        Layout& parent = layout.parent()->get().get<Layout>();
+        if (layout.parent() && layout.parent_unsafe().is_root()) return;
+        auto &parent = layout.parent_unsafe().get<Layout>();
+
         switch (_dir) {
-        case Direction::Up:
-        case Direction::Left:
-            if (parent.front()->get() != layout)
-                parent.shift_backward(std::ranges::find(parent, layout));
-            break;
-        case Direction::Down:
-        case Direction::Right:
-            if (parent.back()->get() != layout)
-                parent.shift_forward(std::ranges::find(parent, layout));
-            break;
+            case Direction::Up:
+            case Direction::Left:
+                if (parent.front() != layout)
+                    parent.shift_backward(std::ranges::find(parent, layout));
+                break;
+            case Direction::Down:
+            case Direction::Right:
+                if (parent.back() != layout)
+                    parent.shift_forward(std::ranges::find(parent, layout));
+                break;
         }
-    } else if (const auto& winref = state.current_workspace().window_list().current()) {
-        logger::debug("Move container -> direction: {}", direction_to_str(_dir));
+    } else if (!state.current_workspace().window_list().empty()) {
+        Window &window = state.current_workspace().window_list().current();
 
-        Window& window = winref->get();
-        // TODO: Fix this smell
-        assert(window.parent());
-        auto pair_noderef = _get_type_direction_compatible_node_pair(window, _dir);
-        if (pair_noderef) {
-            auto&[parent, child_it] = pair_noderef.value();
-            auto side_it = _get_iter_by_direction(parent, child_it, _dir);
-            if (side_it == parent.get().cend()) {
-                if (parent.get().type() != window.parent()->get().get<Layout>().type()) {
-                    window::purge_and_reconfigure(window);
-                    switch (_dir) {
-                    case Direction::Up:
-                    case Direction::Left:
-                        parent.get().insert(parent.get().begin(), window);
-                        break;
-                    case Direction::Down:
-                    case Direction::Right:
-                        parent.get().add(window);
-                        break;
-                    }
-                    parent.get().update_rect();
-                    return;
-                } else return;
-            };
-
-            logger::debug("Move container -> can be moved to nearest neighbour");
-            _move_to_nearest_neighbour(window, parent.get(), child_it, side_it, _dir);
+        if (const auto &noderef = _find_direction_compatible_node(window, _dir)) {
+            assert(noderef->get().parent());
+            logger::debug("Move container -> can be moved to its adjacent");
+            _move_to_adjacent_node(window, noderef->get(), _dir);
         } else {
-            Layout& top_layout = state.current_workspace().back()->get().get<Layout>();
+            Layout &top_layout = state.current_workspace().tiling_layout();
             if (top_layout.size() == 1) return;
 
             switch (top_layout.type()) {
-            case Layout::Type::Horizontal:
-                if (_dir == Direction::Right || _dir == Direction::Left) return;
-                break;
-            case Layout::Type::Vertical:
-                if (_dir == Direction::Up || _dir == Direction::Down) return;
-                break;
-            case Layout::Type::Tabbed:
-                break;
-            case Layout::Type::Floating: // impossible
-                return;
+                case Layout::Containment_type::Horizontal:
+                case Layout::Containment_type::Tabbed:
+                    if (_dir == Direction::Right || _dir == Direction::Left) return;
+                    break;
+                case Layout::Containment_type::Vertical:
+                    if (_dir == Direction::Up || _dir == Direction::Down) return;
+                    break;
+                default:
+                    std::unreachable();
             }
 
             logger::debug("Move container -> can be moved to top node");
@@ -299,17 +324,40 @@ void Move_container::operator()(State& state) const noexcept
     }
 #ifndef NDEBUG
     std::string str;
-    _get_tree_numbers(str, state.current_workspace());
+    _tree_debug(str, state.current_workspace());
     logger::debug("Move container -> Tree: R{} {}", state.current_workspace().name(), str);
 #endif
 }
 
-void Change_layout_type::operator()(State& state) const noexcept
+void Change_layout_type::execute(State &state) const noexcept
 {
-    if (const auto& winref = state.current_workspace().window_list().current()) {
+    if (!state.current_workspace().window_list().empty()) {
         logger::debug("Change layout type -> type: {}", layout_type_to_str(_change_to));
 
-        Window& window = winref->get();
+        Window &window = state.current_workspace().window_list().current();
         window.mark_layout(_change_to);
     }
 }
+
+void Change_workspace::execute(State &state) const noexcept
+{
+    if (state.current_workspace().index() == _workspace_id) return;
+    auto& last_workspace = state.current_workspace();
+    auto& workspace = state.workspaces().contains(_workspace_id)
+                    ? state.workspaces().at(_workspace_id)
+                    : state.create_workspace(state.current_monitor(), _workspace_id);
+
+    for (auto& window : last_workspace.window_list()) {
+        window.minimize();
+    }
+    for (auto& window : workspace.window_list()) {
+        window.normalize();
+    }
+    state.change_workspace(workspace);
+
+    if (last_workspace.size() == 1 && last_workspace.floating_layout().empty()) {
+        state.destroy_workspace(last_workspace.index());
+    }
+}
+
+} // namespace binding

@@ -40,28 +40,37 @@ public:
     inline bool empty() const noexcept
     { return _children.empty(); }
 
-    inline size_t size() const noexcept
+    inline auto size() const noexcept -> std::list<Node<T>*>::size_type
     { return _children.size(); }
 
-    inline std::optref<Node<T>> front()  const noexcept
-    { return _children.front() ? std::optref<Node<T>>(*_children.front()) : std::nullopt; }
+    inline auto front() const noexcept -> Node<T>&
+    {
+        assert(_children.front());
+        return *_children.front();
+    }
 
-    inline std::optref<Node<T>> back()   const noexcept
-    { return _children.back() ? std::optref<Node<T>>(*_children.back()) : std::nullopt; }
+    inline auto back() const noexcept -> Node<T>&
+    {
+        assert(_children.back());
+        return *_children.back();
+    }
 
-    inline std::optref<Node<T>> parent() const noexcept
+    inline auto parent() const noexcept -> std::optref<Node<T>>
     { return (_parent) ? std::optref<Node<T>>(*_parent) : std::nullopt; }
 
-    template <std::derived_from<Root<T>> R = Root<T>>
-    inline const R& root() const
-    { return static_cast<const R&>(get_root(*this)); }
+    inline auto parent_unsafe() const noexcept -> Node<T>&
+    { return *_parent; }
 
-    template <std::derived_from<Root<T>> R = Root<T>>
-    inline R& root()
-    { return static_cast<R&>(get_root(*this)); }
+    template <std::derived_from<Root<T>> Root_type = Root<T>>
+    inline auto root() const -> const Root_type&
+    { return static_cast<const Root_type&>(get_root(*this)); }
 
-    template <typename Cast>
-    inline bool convertible_to() const
+    template <std::derived_from<Root<T>> Root_type = Root<T>>
+    inline auto root() -> Root_type&
+    { return static_cast<Root_type&>(get_root(*this)); }
+
+    template <std::derived_from<Node<T>> Cast>
+    inline bool is_convertible_to() const
     {
         if constexpr (std::derived_from<Cast, Leaf<T>>) {
             if (!_is_leaf) return false;
@@ -74,17 +83,17 @@ public:
     }
 
     template <typename Cast>
-    inline const Cast& get() const
+    inline auto get() const -> const Cast&
     {
-        if (!convertible_to<Cast>())
+        if (!is_convertible_to<Cast>())
             throw std::bad_cast();
         return static_cast<const Cast&>(*this);
     }
 
     template <typename Cast>
-    inline Cast& get()
+    inline auto get() -> Cast&
     {
-        if (!convertible_to<Cast>())
+        if (!is_convertible_to<Cast>())
             throw std::bad_cast();
         return static_cast<Cast&>(*this);
     }
@@ -166,7 +175,7 @@ template <typename T>
 inline Leaf<T>& get_front_leaf(Node<T>& node)
 {
     Node<T>* leaf = &node;
-    while (!leaf->is_leaf()) leaf = &leaf->front()->get();
+    while (!leaf->is_leaf()) leaf = &leaf->front();
     return static_cast<Leaf<T>&>(*leaf);
 }
 
@@ -174,7 +183,7 @@ template <typename T>
 inline Leaf<T>& get_back_leaf(Node<T>& node)
 {
     Node<T>* leaf = &node;
-    while (!leaf->is_leaf()) leaf = &leaf->back()->get();
+    while (!leaf->is_leaf()) leaf = &leaf->back();
     return static_cast<Leaf<T>&>(*leaf);
 }
 

@@ -1,9 +1,9 @@
 #include "window.h"
 #include "atom.h"
+#include "event.h"
 #include "ewmh.h"
 #include "extension.h"
 #include "xkb.h"
-#include "frame.h"
 #include "x11.h"
 
 #include "../config.h"
@@ -83,7 +83,7 @@ static void fetch_role(const xcb_window_t window_id, std::string& role)
 }
 
 static void fetch_class_and_instance(const xcb_window_t window_id,
-                                     Window::X11_property::WM_class& wm_class)
+                                     X11_window_property::WM_class& wm_class)
 {
     auto prop = memory::c_own<xcb_get_property_reply_t>(
         xcb_get_property_reply(
@@ -133,8 +133,9 @@ static void fetch_protocols(const xcb_window_t window_id, std::vector<uint32_t>&
     protocols = { proto.atoms, proto.atoms + proto.atoms_len };
 }
 
-static void init_xprop(const uint32_t window_id, ::Window::X11_property& xprop)
+static void init_xprop(const uint32_t window_id, X11_window_property& xprop)
 {
+    fetch_name(window_id, xprop.name);
     fetch_type(window_id, xprop.type);
     fetch_role(window_id, xprop.role);
     fetch_class_and_instance(window_id, xprop.wm_class);
@@ -144,54 +145,53 @@ static void init_xprop(const uint32_t window_id, ::Window::X11_property& xprop)
 
 } // namespace window
 
-
-// X11::Window implementations
-Window::Window(Index id)
-    : ::Window(id, Display_type::X11)
+// X11 Window implementations
+Window_impl::Window_impl(const Window& window)
+    : _window(window)
 {
     // Get window events
     const uint32_t mask_values[] = { XCB_GRAVITY_NORTH_WEST, config::X11::CHILD_EVENT_MASK };
-    window::change_attributes(id, XCB_CW_WIN_GRAVITY | XCB_CW_EVENT_MASK, std::span{mask_values});
+    window::change_attributes(_window.index(), XCB_CW_WIN_GRAVITY | XCB_CW_EVENT_MASK, std::span{mask_values});
 
     if (extension::xshape().is_supported) {
-        xcb_shape_select_input(X11::detail::conn(), id, XCB_SHAPE_NOTIFY);
+        xcb_shape_select_input(X11::detail::conn(), _window.index(), XCB_SHAPE_NOTIFY);
     }
 
-    // Get window title
-    std::string name;
-    window::detail::fetch_name(id, name);
-    this->name(name);
-
-    // Init Frame
-    this->_fill_frame(memory::make_owner<X11::Window_frame>(*this));
-
-    // Init X11 Property
-    this->_fill_xprop(memory::make_owner<X11_property>());
-    window::detail::init_xprop(id, xprop());
-    _do_not_focus = !xprop().wm_hints.input
-                 && std::ranges::contains(xprop().protocols, X11::atom::WM_TAKE_FOCUS);
+    // Get window properties.
+    window::detail::init_xprop(_window.index(), _xprop);
+    _do_not_focus = !_xprop.wm_hints.input
+                 && std::ranges::contains(_xprop.protocols, X11::atom::WM_TAKE_FOCUS);
 }
 
-void Window::_update_rect_fn() noexcept
+void Window_impl::update_rect() noexcept
 {
-    frame().rect(this->rect());
-    window::configure_rect(index(), {
-            { this->rect().pos.x + (int)config::GAP_SIZE, this->rect().pos.y + (int)config::GAP_SIZE },
-            { this->rect().size.x - 2*(int)config::GAP_SIZE, this->rect().size.y - 2*(int)config::GAP_SIZE }
-    });
+    if (_window.state() != Window::State::Normal) return;
+    switch (_window.placement_mode()) {
+    case Window::Placement_mode::Tiling:
+        window::configure_rect(_window.index(), {
+            { _window.rect().pos.x + (int)config::GAP_SIZE, _window.rect().pos.y + (int)config::GAP_SIZE },
+            { _window.rect().size.x - 2*(int)config::GAP_SIZE, _window.rect().size.y - 2*(int)config::GAP_SIZE }
+        });
+        break;
+    case Window::Placement_mode::Floating:
+    case Window::Placement_mode::Sticky:
+        window::configure_rect(_window.index(), _window.rect());
+        break;
+    }
+
 }
 
-void Window::_update_focus_fn() noexcept
+void Window_impl::update_focus() noexcept
 {
-    if (focused()) {
+    if (_window.focused()) {
         if (_do_not_focus) {
-            logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", index());
-            window::send_take_focus(index());
+            logger::debug("Window focus -> sending WM_TAKE_FOCUS to window: {:#x}", _window.index());
+            window::send_take_focus(_window.index());
         } else {
-            logger::debug("Window focus -> setting input focus to window : {:#x}", index());
-            window::set_input_focus(index());
+            logger::debug("Window focus -> setting input focus to window : {:#x}", _window.index());
+            window::set_input_focus(_window.index());
         }
-        X11::ewmh::update_net_active_window(index());
+        X11::ewmh::update_net_active_window(_window.index());
     } else {
         xcb_set_input_focus(X11::detail::conn(), XCB_INPUT_FOCUS_POINTER_ROOT, X11::detail::main_window_id(),
                             XCB_CURRENT_TIME);
@@ -199,7 +199,26 @@ void Window::_update_focus_fn() noexcept
     }
 }
 
-Window::~Window() noexcept = default;
+void Window_impl::update_state(Window::State wstate) noexcept
+{
+    switch (wstate) {
+    case Window::State::Normal:
+        ewmh::update_net_wm_state_hidden(_window.index(), false);
+        xcb_map_window(X11::detail::conn(), _window.index());
+        break;
+    case Window::State::Minimized:
+        ewmh::update_net_wm_state_hidden(_window.index(), true);
+        event::ignore_unmap(_window.index());
+        xcb_unmap_window(X11::detail::conn(), _window.index());
+        break;
+    case Window::State::Maximized:
+        // Make the window fullscreen.
+        break;
+    default: std::unreachable();
+    }
+}
+
+Window_impl::~Window_impl() noexcept = default;
 
 
 // Utilities
@@ -274,10 +293,9 @@ static auto _fetch_all()
     auto query = memory::c_own<xcb_query_tree_reply_t>(
         xcb_query_tree_reply(X11::detail::conn(),
             xcb_query_tree(X11::detail::conn(), X11::detail::root_window_id()), nullptr));
-    xcb_window_t* window_ids = xcb_query_tree_children(query.get());
     return {
         std::move(query),
-        std::span{window_ids, (uint64_t)xcb_query_tree_children_length(query.get())}
+        std::span{xcb_query_tree_children(query.get()), (uint64_t)xcb_query_tree_children_length(query.get())}
     };
 }
 
@@ -322,7 +340,7 @@ static void _manage(const uint32_t window_id, State& state, const bool is_starti
     }
 
     try {
-        X11::Window& window = state.manage_window<X11::Window>(window_id);
+        Window& window = state.manage_window(window_id, Window::Display_type::X11);
 
         window::grab_keys(window.index(), state);
         xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, window.index());

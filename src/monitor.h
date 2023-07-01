@@ -27,15 +27,11 @@ public:
     inline auto size() const noexcept -> std::size_t
     { return _workspaces.size(); }
 
-    inline bool empty() const noexcept
+    inline auto empty() const noexcept -> bool
     { return _workspaces.empty(); }
 
     inline auto name() const noexcept -> std::string_view
     { return _name; }
-
-    void add(Workspace& workspace);
-
-    void remove(const_iterator it);
 
     inline void current(const_iterator it)
     {
@@ -43,10 +39,16 @@ public:
         _current = &*it;
     }
 
-    inline auto current() const noexcept -> std::optref<Workspace>
+    inline auto current() const noexcept -> const Workspace&
     {
-        return _current ? std::optref<Workspace>(*_current)
-                        : std::nullopt;
+        assert(!empty());
+        return (_current) ? *_current : *_workspaces.back();
+    }
+
+    inline auto current() noexcept -> Workspace&
+    {
+        assert(!empty());
+        return (_current) ? *_current : *_workspaces.back();
     }
 
 public:
@@ -55,6 +57,9 @@ public:
         , _name(std::move(name))
         , _current(nullptr)
      {}
+
+    void add(Workspace& workspace);
+    void remove(const_iterator it);
 
     ~Monitor() noexcept override;
 };
