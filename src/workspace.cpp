@@ -31,11 +31,15 @@ void Workspace::_update_rect_fn() noexcept
 void Workspace::_update_focus_fn() noexcept
 {
     if (focused()) {
+        for (auto& window : _window_list)
+            window.normalize();
         if (!_window_list.empty())
             _window_list.current().focus();
     } else {
         if (!_window_list.empty())
             _window_list.current().unfocus();
+        for (auto& window : _window_list)
+            window.minimize();
     }
 }
 

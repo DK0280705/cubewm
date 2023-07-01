@@ -347,12 +347,6 @@ void Change_workspace::execute(State &state) const noexcept
                     ? state.workspaces().at(_workspace_id)
                     : state.create_workspace(state.current_monitor(), _workspace_id);
 
-    for (auto& window : last_workspace.window_list()) {
-        window.minimize();
-    }
-    for (auto& window : workspace.window_list()) {
-        window.normalize();
-    }
     state.change_workspace(workspace);
 
     if (last_workspace.size() == 1 && last_workspace.floating_layout().empty()) {
