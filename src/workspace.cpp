@@ -71,7 +71,6 @@ void Workspace::add_window(Window& window) noexcept
 {
     assert(std::ranges::find(_window_list, window) == _window_list.cend());
     _window_list.add(window);
-    _window_list.current().focus();
 }
 
 void Workspace::focus_window(Window& window) noexcept
