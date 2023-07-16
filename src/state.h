@@ -74,12 +74,12 @@ public:
     { return _wor_mgr; }
 
 public:
-    // Discouraged for use, use change_workspace() instead.
-    void current_workspace(Workspace& workspace);
-    // Discouraged for use, use change_workspace() instead.
-    void current_monitor(Monitor& monitor);
-
-    void change_workspace(Workspace& workspace) noexcept;
+    /**
+     * Switch to desired workspace.
+     * Automatically handles workspace in different monitor.
+     * @param workspace
+     */
+    void switch_workspace(Workspace& workspace) noexcept;
 
     /**
      * @brief Get current workspace.
@@ -99,57 +99,21 @@ public:
     /**
      * @brief Manage a window
      * @param window_id
+     * @param type Display type for window
+     * @param workspace Workspace to contain window
      * @return Reference to object derived from Window class.
      */
-    inline auto manage_window(const uint32_t window_id, Window::Display_type type) -> Window&
-    {
-        Window& window = _win_mgr.manage<Window>(window_id, type);
-        window::move_to_workspace(window, current_workspace());
-        window::add_window(current_workspace().window_list(), window);
-        return window;
-    }
+    auto manage_window(Manager<Window>::Key window_id, Window::Display_type type) -> Window&;
 
-    inline void unmanage_window(const uint32_t window_id)
-    {
-        Window& window = _win_mgr.at(window_id);
-        window::remove_window(window.root<Workspace>().window_list(), window);
-        window::purge_and_reconfigure(window);
-        _win_mgr.unmanage(window.index());
-    }
+    void unmanage_window(Manager<Window>::Key window_id);
 
-    inline auto create_workspace(Monitor& monitor) -> Workspace&
-    {
-        uint32_t id = 0;
-        while (_wor_mgr.contains(id))
-            ++id;
-        return create_workspace(monitor, id);
-    }
+    auto create_workspace(Monitor& monitor) -> Workspace&;
 
-    inline auto create_workspace(Monitor& monitor, Manager<Workspace>::Key workspace_id) -> Workspace&
-    {
-        Workspace& workspace = _wor_mgr.manage(workspace_id);
-        monitor.add(workspace);
-        return workspace;
-    }
+    auto create_workspace(Monitor& monitor, Manager<Workspace>::Key workspace_id) -> Workspace&;
 
-    inline void destroy_workspace(Manager<Workspace>::Key workspace_id)
-    {
-        Workspace& workspace = _wor_mgr.at(workspace_id);
-        assert_debug(workspace.size() == 1 && workspace.floating_layout().empty(),
-                     "Workspace must be empty to safely destroy");
-        assert_debug(!workspace.focused(), "Workspace must not be focused");
-        Monitor& monitor = workspace.monitor();
-        assert_debug(current_workspace() != workspace, "Can't destroy current workspace");
-        if (monitor.current() == workspace) {
-            if (monitor.size() > 1) {
-                monitor.current(std::ranges::prev(monitor.cend()));
-            } else {
-                assert(monitor != current_monitor());
-            }
-        }
-        monitor.remove(std::ranges::find(monitor, workspace));
-        _wor_mgr.unmanage(workspace.index());
-    }
+    auto get_or_create_workspace(Manager<Workspace>::Key workspace_id) -> Workspace&;
+
+    void destroy_workspace(Manager<Workspace>::Key workspace_id);
 
 private:
     template<signals sig>

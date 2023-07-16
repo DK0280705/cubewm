@@ -58,8 +58,8 @@ public:
         , _current(nullptr)
      {}
 
-    void add(Workspace& workspace);
-    void remove(const_iterator it);
+    void add_child(Workspace& workspace);
+    void remove_child(const_iterator it);
 
     ~Monitor() noexcept override;
 };

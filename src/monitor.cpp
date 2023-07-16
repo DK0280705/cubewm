@@ -21,13 +21,13 @@ void Monitor::_update_focus_fn() noexcept
     }
 }
 
-void Monitor::add(Workspace& workspace)
+void Monitor::add_child(Workspace& workspace)
 {
     workspace._monitor = this;
     _workspaces.push_back(&workspace);
 }
 
-void Monitor::remove(Monitor::const_iterator it)
+void Monitor::remove_child(Monitor::const_iterator it)
 {
     assert(std::ranges::contains(_workspaces, &*it));
     it->_monitor = nullptr;

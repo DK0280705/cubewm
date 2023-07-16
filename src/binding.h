@@ -53,11 +53,11 @@ public:
     void execute(State& state) const noexcept override;
 };
 
-class Change_workspace : public Binding
+class Switch_workspace : public Binding
 {
     uint32_t _workspace_id;
 public:
-    Change_workspace(const Index& k, uint32_t index) noexcept
+    Switch_workspace(const Index& k, uint32_t index) noexcept
         : Binding(k)
         , _workspace_id(index)
     {}

@@ -41,7 +41,8 @@ xmacro(_NET_DESKTOP_NAMES) \
 xmacro(_NET_DESKTOP_VIEWPORT) \
 xmacro(_NET_ACTIVE_WINDOW) \
 xmacro(_NET_CLOSE_WINDOW) \
-xmacro(_NET_MOVERESIZE_WINDOW)
+xmacro(_NET_MOVERESIZE_WINDOW) \
+xmacro(_NET_SHOWING_DESKTOP)
 
 #define ALL_ATOMS_XMACRO \
 SUPPORTED_ATOMS_XMACRO \
@@ -97,6 +98,11 @@ constexpr xcb_atom_t _NET_MOVERESIZE_WINDOW_HEIGHT = (1 << 11);
 
 constexpr xcb_atom_t _NET_WM_DESKTOP_NONE = 0xFFFFFFF0;
 constexpr xcb_atom_t _NET_WM_DESKTOP_ALL  = 0xFFFFFFFF;
+
+constexpr xcb_atom_t _NET_WM_STATE_REMOVE = 0;
+constexpr xcb_atom_t _NET_WM_STATE_ADD    = 1;
+constexpr xcb_atom_t _NET_WM_STATE_TOGGLE = 2;
+
 
 
 #define xmacro(name) extern xcb_atom_t name;

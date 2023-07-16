@@ -124,6 +124,16 @@ void update_net_desktop_names(const Manager<::Workspace>& workspace_manager)
     logger::debug("EWMH -> updated _NET_DESKTOP_NAMES: {}", fmt::join(names, ", "));
 }
 
+void update_net_showing_desktop(bool show)
+{
+    const uint32_t prop[] = { show };
+    window::change_property(X11::detail::root_window_id(),
+                            window::prop::replace,
+                            atom::_NET_SHOWING_DESKTOP,
+                            XCB_ATOM_CARDINAL,
+                            std::span{prop});
+}
+
 void update_net_wm_state_hidden(xcb_window_t window_id, bool hide)
 {
     const xcb_atom_t atoms[] = { atom::_NET_WM_STATE_HIDDEN };

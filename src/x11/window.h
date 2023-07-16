@@ -46,9 +46,12 @@ class Window_impl final : public ::Window::Impl
 
 public:
     explicit Window_impl(const Window& window);
+
     void update_rect()                      noexcept override;
     void update_focus()                     noexcept override;
     void update_state(Window::State wstate) noexcept override;
+
+    void kill() noexcept override;
 
     ~Window_impl() noexcept override;
 };
@@ -111,12 +114,6 @@ void load_all(State& state);
  * @param state
  */
 void manage(uint32_t window_id, State& state);
-/**
- * @brief Unmanage a window and remove it from State object.
- * @param window_id
- * @param state
- */
-void unmanage(uint32_t window_id, State& state);
 
 /**
  * @brief Send WM_TAKE_FOCUS protocol to a window

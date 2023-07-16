@@ -107,7 +107,7 @@ public:
 public:
     Node() noexcept = default;
 
-    void add(Node<T>& node)
+    void add_child(Node<T>& node)
     {
         assert(!_is_leaf);
         assert(!node._is_root);
@@ -116,7 +116,7 @@ public:
         _children.push_back(&node);
     }
 
-    void remove(Node<T>& node)
+    void remove_child(Node<T>& node)
     {
         auto node_it = std::ranges::find(_children, &node);
         assert(node_it != _children.end());
@@ -124,13 +124,13 @@ public:
         _children.erase(node_it);
     }
 
-    void erase(const_iterator node_it)
+    void erase_child(const_iterator node_it)
     {
         node_it->_parent = nullptr;
         _children.erase(node_it);
     }
 
-    void insert(const_iterator position, Node<T>& node)
+    void insert_child(const_iterator position, Node<T>& node)
     {
         assert(!_is_leaf);
         assert(!node._is_root);
@@ -142,12 +142,12 @@ public:
     void clear()
     { _children.clear(); }
 
-    void shift_forward(const_iterator position)
+    void shift_child_forward(const_iterator position)
     {
         _children.splice(std::ranges::next(position, 2), _children, position);
     }
 
-    void shift_backward(const_iterator position)
+    void shift_child_backward(const_iterator position)
     {
         _children.splice(std::ranges::prev(position), _children, position);
     }
@@ -191,6 +191,6 @@ template <typename T>
 inline void transfer(Node<T>& from, Node<T>& to)
 {
     assert(from.parent());
-    from.parent()->get().remove(from);
-    to.add(from);
+    from.parent()->get().remove_child(from);
+    to.add_child(from);
 }

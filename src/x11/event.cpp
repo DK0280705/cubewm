@@ -28,7 +28,9 @@ xmacro(BUTTON_RELEASE, button_release) \
 xmacro(KEY_PRESS, key_press) \
 xmacro(KEY_RELEASE, key_release) \
 xmacro(MOTION_NOTIFY, motion_notify) \
-xmacro(SELECTION_CLEAR, selection_clear)
+xmacro(SELECTION_CLEAR, selection_clear) \
+xmacro(PROPERTY_NOTIFY, property_notify) \
+xmacro(CLIENT_MESSAGE, client_message)
 
 #define SUPPORTED_XKB_EVENTS \
 xmacro(NEW_KEYBOARD_NOTIFY, xkb_new_keyboard_notify) \
@@ -36,6 +38,8 @@ xmacro(MAP_NOTIFY, xkb_map_notify) \
 xmacro(STATE_NOTIFY, xkb_state_notify)
 
 namespace X11::event {
+
+static std::unordered_map<xcb_window_t, uint32_t> _ignored_unmap_ids;
 
 #define xmacro(key, name) static void _on_##name (State& state, const xcb_##name##_event_t& event);
     SUPPORTED_EVENTS
@@ -90,7 +94,6 @@ void handle(State& state, const Event& event)
     }
 }
 
-static std::unordered_map<xcb_window_t, uint32_t> _ignored_unmap_ids;
 void ignore_unmap(xcb_window_t window_id)
 {
     _ignored_unmap_ids[window_id]++;
@@ -131,7 +134,7 @@ void _on_unmap_notify(State& state, const xcb_unmap_notify_event_t& event)
     if (win_mgr.contains(event.window)) {
         logger::debug("Unmap notify -> unmapping window: {:#x}", event.window);
         if (is_unmap_ignored(event.window)) return;
-        window::unmanage(event.window, state);
+        state.unmanage_window(event.window);
         xcb_delete_property(state.conn(), event.window, atom::_NET_WM_DESKTOP);
         xcb_delete_property(state.conn(), event.window, atom::_NET_WM_STATE);
     } else {
@@ -150,21 +153,18 @@ void _on_map_request(State& state, const xcb_map_request_event_t& event)
         if (workspace == state.current_workspace()) {
             logger::debug("Map request -> remapping managed window: {:#x}", window.index());
             xcb_map_window(state.conn(), window.index());
-            ::window::focus_window(workspace.window_list(), window);
+            workspace.focus_window(window);
         }
     } else {
-        window::manage(event.window, state);
-        ::window::focus_last(state.current_workspace().window_list());
+        X11::window::manage(event.window, state);
     }
 }
 
 void _on_enter_notify(State& state, const xcb_enter_notify_event_t& event)
 {
-    logger::debug("Enter notify -> window: {:#x}", event.event);
-    if (event.mode != XCB_NOTIFY_MODE_NORMAL || event.detail == XCB_NOTIFY_DETAIL_INFERIOR) {
-        logger::debug("Enter notify -> ignoring undesired notify");
+    if (event.mode != XCB_NOTIFY_MODE_NORMAL || event.detail == XCB_NOTIFY_DETAIL_INFERIOR)
         return;
-    }
+
     if (const auto& winref = state.windows()[event.event]) {
         logger::debug("Enter notify -> window is managed");
         ::window::try_focus_window(winref->get());
@@ -187,7 +187,8 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
     // Update focus if root window received focus in
     if (event.event == root_window_id(state.conn())) {
         logger::debug("Focus in -> got root window id");
-        ::window::focus_last(state.current_workspace().window_list());
+        auto& current_window = state.current_workspace().current_window();
+        state.current_workspace().focus_window(current_window);
     } else if (const auto& winref = win_mgr[event.event]) {
         logger::debug("Focus in -> trying to focus window id: {:#x}", winref->get().index());
         ::window::try_focus_window(winref->get());
@@ -224,9 +225,7 @@ void _on_focus_out(State&, const xcb_focus_out_event_t& event)
         case XCB_NOTIFY_DETAIL_NONE:
             return "None";
             break;
-        default:
-            return "<undefined>";
-            break;
+        default: std::unreachable();
         }
     }();
     std::string_view mode = [&] {
@@ -243,9 +242,7 @@ void _on_focus_out(State&, const xcb_focus_out_event_t& event)
         case XCB_NOTIFY_MODE_WHILE_GRABBED:
             return "WhileGrabbed";
             break;
-        default:
-            return "<undefined>";
-            break;
+        default: std::unreachable();
         }
     }();
     logger::debug("Focus out -> window: {:#x}, detail: {}, mode: {}",
@@ -308,6 +305,87 @@ void _on_selection_clear(State&, const xcb_selection_clear_event_t& event)
         return;
     }
     ::Server::instance().stop();
+}
+
+void _on_property_notify(State& state, const xcb_property_notify_event_t& event)
+{
+}
+
+void _on_client_message(State& state, const xcb_client_message_event_t& event)
+{
+    //bunch of if elses
+
+    if (event.type == atom::_NET_WM_STATE) {
+        if (event.format != 32
+        || (event.data.data32[1] != atom::_NET_WM_STATE_FULLSCREEN
+         && event.data.data32[1] != atom::_NET_WM_STATE_DEMANDS_ATTENTION
+         && event.data.data32[1] != atom::_NET_WM_STATE_STICKY)) {
+            return;
+        }
+
+        if (const auto& winref = state.windows()[event.window]) {
+            auto& window = winref->get();
+            // Here in Cubewm, Maximize == Fullscreen
+            if (event.data.data32[1] == atom::_NET_WM_STATE_FULLSCREEN) {
+                if (window.state() == Window::State::Maximized
+                && (event.data.data32[0] == atom::_NET_WM_STATE_REMOVE || event.data.data32[0] == atom::_NET_WM_STATE_TOGGLE))
+                    window.normalize();
+                if (window.state() != Window::State::Maximized
+                && (event.data.data32[0] == atom::_NET_WM_STATE_ADD || event.data.data32[0] == atom::_NET_WM_STATE_TOGGLE))
+                    window.maximize();
+            }
+        }
+    } else if (event.type == atom::_NET_ACTIVE_WINDOW) {
+        if (event.format != 32) return;
+
+        if (const auto& winref = state.windows()[event.window]) {
+            auto& window = winref->get();
+
+            // It means, it is set by pager/taskbar
+            if (event.data.data32[0] == 2) {
+                auto& workspace = window.root<Workspace>();
+                if (state.current_workspace() != workspace)
+                    state.switch_workspace(workspace);
+                workspace.focus_window(window);
+            }
+        }
+
+    } else if (event.type == atom::_NET_REQUEST_FRAME_EXTENTS) {
+        /**
+         * A client can request an estimate for the frame size which the window
+         * manager will put around it before actually mapping its window. Java
+         * does this (as of openjdk-7).
+         */
+    } else if (event.type == atom::WM_CHANGE_STATE) {
+        if (event.data.data32[0] == XCB_ICCCM_WM_STATE_ICONIC) {
+            const uint32_t data[] = { XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE };
+            window::change_property(event.window, window::prop::replace,
+                                    atom::WM_STATE, atom::WM_STATE, std::span{data});
+        }
+    } else if (event.type == atom::_NET_CURRENT_DESKTOP) {
+        // Switch workspace
+        const uint32_t index = event.data.data32[0];
+        if (state.current_workspace().index() == index) return;
+
+        if (const auto& worref = state.workspaces()[index])
+            state.switch_workspace(worref->get());
+    } else if (event.type == atom::_NET_WM_DESKTOP) {
+        // Move window to another workspace.
+        const uint32_t index = event.data.data32[0];
+        if (index == state.current_workspace().index()) return;
+
+        if (const auto& winref = state.windows()[event.window]) {
+            auto& window = winref->get();
+            auto& workspace = state.get_or_create_workspace(index);
+            ::window::move_to_workspace(window, workspace);
+        }
+    } else if (event.type == atom::_NET_CLOSE_WINDOW) {
+        if (const auto& winref = state.windows()[event.window]) {
+            auto& window = winref->get();
+            window.kill();
+            state.unmanage_window(window.index());
+        }
+    }
 }
 
 void _on_xkb_new_keyboard_notify(State&, const xcb_xkb_new_keyboard_notify_event_t& event)

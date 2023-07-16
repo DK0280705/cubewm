@@ -1,18 +1,37 @@
 #pragma once
 #include "layout.h"
-#include "window.h"
+#include "managed.h"
 #include "helper/pointer_wrapper.h"
 
+class Window;
 class Monitor;
 
 class Workspace final : public Root<Container>
                       , public Managed<unsigned int>
 {
-    std::string _name;
-    Window_list _window_list;
-    Layout*     _focused_layout;
-    Monitor*    _monitor;
+    class _Window_list
+    {
+        std::list<Window*> _list;
+
+    public:
+        HELPER_POINTER_ITERATOR_WRAPPER(_list);
+
+        inline auto current() const noexcept -> Window&
+        { return *_list.front(); }
+
+        inline bool empty() const noexcept
+        { return _list.empty(); }
+
+        public:
+        void add(Window& window)       noexcept;
+        void focus(const_iterator it)  noexcept;
+        void remove(const_iterator it) noexcept;
+    };
+
     friend class Monitor;
+    Monitor*     _monitor;
+    std::string  _name;
+    _Window_list _window_list;
 
     void _update_rect_fn()  noexcept override;
     void _update_focus_fn() noexcept override;
@@ -20,18 +39,11 @@ class Workspace final : public Root<Container>
 public:
     explicit Workspace(Index id);
 
+    inline auto monitor() const noexcept -> Monitor&
+    { assert(_monitor); return *_monitor; }
+
     inline auto name() const noexcept -> std::string_view
     { return _name; }
-
-    inline auto window_list() noexcept -> Window_list&
-    { return _window_list; }
-    inline auto window_list() const noexcept -> const Window_list&
-    { return _window_list; }
-
-    inline auto focused_layout() const noexcept -> std::optref<Layout>
-    { return _focused_layout ? std::optref<Layout>(*_focused_layout) : std::nullopt; }
-    inline void focused_layout(Layout& layout) noexcept
-    { _focused_layout = &layout; }
 
     inline auto tiling_layout() const -> Layout&
     {
@@ -47,8 +59,17 @@ public:
         return front().get<Layout>();
     }
 
-    inline auto monitor() const noexcept -> Monitor&
-    { assert(_monitor); return *_monitor; }
+    inline bool has_window() const noexcept
+    { return !_window_list.empty(); }
+
+    inline auto current_window() const noexcept -> Window&
+    { return _window_list.current(); }
+
+public:
+
+    void add_window(Window& window)    noexcept;
+    void focus_window(Window& window)  noexcept;
+    void remove_window(Window& window) noexcept;
 
     ~Workspace() noexcept override;
 };

@@ -161,6 +161,9 @@ Window_impl::Window_impl(const Window& window)
     window::detail::init_xprop(_window.index(), _xprop);
     _do_not_focus = !_xprop.wm_hints.input
                  && std::ranges::contains(_xprop.protocols, X11::atom::WM_TAKE_FOCUS);
+
+    xcb_change_save_set(X11::detail::conn(), XCB_SET_MODE_INSERT, window.index());
+    xcb_map_window(X11::detail::conn(), window.index());
 }
 
 void Window_impl::update_rect() noexcept
@@ -218,7 +221,31 @@ void Window_impl::update_state(Window::State wstate) noexcept
     }
 }
 
-Window_impl::~Window_impl() noexcept = default;
+void Window_impl::kill() noexcept
+{
+    if (std::ranges::contains(_xprop.protocols, atom::WM_DELETE_WINDOW)) {
+        const xcb_client_message_event_t event = {
+            .response_type = XCB_CLIENT_MESSAGE,
+            .format        = 32,
+            .sequence      = 0,
+            .window        = _window.index(),
+            .type          = atom::WM_PROTOCOLS,
+            .data          = { .data32 { atom::WM_DELETE_WINDOW, Timestamp::get() } }
+        };
+        xcb_send_event(detail::conn(), false, _window.index(), XCB_EVENT_MASK_NO_EVENT, (const char*)&event);
+        detail::conn().flush();
+    } else {
+        xcb_destroy_window(detail::conn(), _window.index());
+    }
+}
+
+Window_impl::~Window_impl() noexcept
+{
+    if (extension::xshape().is_supported) {
+        xcb_shape_select_input(detail::conn(), _window.index(), XCB_NONE);
+    }
+    xcb_change_save_set(detail::conn(), XCB_SET_MODE_DELETE, _window.index());
+}
 
 
 // Utilities
@@ -314,15 +341,7 @@ static auto _fetch_workspace(const uint32_t window_id) -> uint32_t
     return reinterpret_cast<uint32_t*>(xcb_get_property_value(prop.get()))[0];
 }
 
-static auto _load_workspace(const uint32_t window_id, State& state) -> Workspace&
-{
-    const auto ws_id = _fetch_workspace(window_id);
-    auto& wor_mgr    = state.workspaces();
-    return wor_mgr.contains(ws_id) ? wor_mgr.at(ws_id)
-                                   : state.create_workspace(state.current_monitor(), ws_id);
-}
-
-static void _manage(const uint32_t window_id, State& state, const bool is_starting_up)
+static void _manage(const uint32_t window_id, State& state, Workspace& workspace, const bool is_starting_up)
 {
     if (state.windows().contains(window_id)) {
         logger::debug("Can't manage window -> already managed");
@@ -340,11 +359,14 @@ static void _manage(const uint32_t window_id, State& state, const bool is_starti
     }
 
     try {
-        Window& window = state.manage_window(window_id, Window::Display_type::X11);
+        if (is_starting_up) {
+            Window& window = state.windows().manage(window_id, Window::Display_type::X11);
+            ::window::move_to_workspace(window, workspace);
+        } else {
+            state.manage_window(window_id, Window::Display_type::X11);
+        }
 
-        window::grab_keys(window.index(), state);
-        xcb_change_save_set(state.conn(), XCB_SET_MODE_INSERT, window.index());
-        xcb_map_window(state.conn(), window.index());
+        window::grab_keys(window_id, state);
 
     } catch (const std::bad_alloc&) {
         logger::error("Can't manage window -> Memory bad allocation");
@@ -358,22 +380,15 @@ void load_all(State& state)
     auto [_, window_ids] = window::_fetch_all();
     xcb_grab_server(X11::detail::conn());
     for (auto window_id : window_ids) {
-        Workspace& workspace = window::_load_workspace(window_id, state);
-        state.current_workspace(workspace);
-        window::_manage(window_id, state, true);
+        Workspace& workspace = state.get_or_create_workspace(_fetch_workspace(window_id));
+        window::_manage(window_id, state, workspace, true);
     }
     xcb_ungrab_server(X11::detail::conn());
 }
 
 void manage(const uint32_t window_id, State& state)
 {
-    _manage(window_id, state, false);
-}
-
-void unmanage(const uint32_t window_id, State& state)
-{
-    state.unmanage_window(window_id);
-    xcb_change_save_set(state.conn(), XCB_SET_MODE_DELETE, window_id);
+    _manage(window_id, state, state.current_workspace(), false);
 }
 
 void send_take_focus(const uint32_t window_id) noexcept
@@ -387,6 +402,7 @@ void send_take_focus(const uint32_t window_id) noexcept
         .data          = { .data32 { X11::atom::WM_TAKE_FOCUS, Timestamp::get() } }
     };
     xcb_send_event(X11::detail::conn(), false, window_id, XCB_EVENT_MASK_NO_EVENT, (const char*)&event);
+    X11::detail::conn().flush();
 }
 
 void set_input_focus(const uint32_t window_id) noexcept

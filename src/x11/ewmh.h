@@ -54,6 +54,12 @@ void update_net_desktop_names(const Manager<::Workspace>& workspace_manager);
 void update_net_number_of_desktops(const Manager<::Workspace>& workspace_manager);
 
 /**
+ * Update _NET_SHOWING_DESKTOP
+ * @param show
+ */
+void udpate_net_showing_desktop(bool show);
+
+/**
  * Update _NET_WM_STATE for _NET_WM_STATE_HIDDEN
  * @param window_id
  * @param hide

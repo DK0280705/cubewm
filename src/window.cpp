@@ -6,33 +6,6 @@
 // For Window::Impl implementation.
 #include "x11/window.h"
 
-void Window_list::add(Window& window)
-{
-    if (!empty() && current().focused())
-        current().unfocus();
-    _list.push_back(&window);
-}
-
-void Window_list::focus(const_iterator it)
-{
-    assert(!empty());
-    if (_list.back()->focused())
-        _list.back()->unfocus();
-
-    Window& window = *it;
-    _list.erase(it);
-    _list.push_back(&window);
-    window.focus();
-}
-
-void Window_list::remove(const_iterator it)
-{
-    if (it->focused())
-        it->unfocus();
-
-    _list.erase(it);
-}
-
 
 Window::Window(unsigned int id, Display_type dt)
     : Managed(id)
@@ -112,90 +85,79 @@ void Window::set_floating() noexcept
     normalize();
 }
 
+void Window::kill() noexcept
+{
+    _impl->kill();
+}
+
 Window::~Window() noexcept = default;
 
 
 
 namespace window {
 
-void add_window(Window_list& window_list, Window& window)
-{
-    assert(&window.root<Workspace>().window_list() == &window_list);
-    assert(std::ranges::find(window_list, window) == window_list.cend());
-    window_list.add(window);
-}
-
-void focus_window(Window_list& window_list, Window& window)
-{
-    if (window != window_list.current()) {
-        auto it = std::ranges::find(window_list, window);
-        assert(it != window_list.cend());
-        window_list.focus(it);
-    }
-}
-
-void focus_last(Window_list& window_list)
-{
-    if (!window_list.empty())
-        window_list.focus(std::ranges::prev(window_list.cend()));
-}
-
 void try_focus_window(Window& window)
 {
     if (window.focused()) return;
-    auto& window_list = window.root<Workspace>().window_list();
-    assert(!window_list.empty());
-    if (window != window_list.current()) {
-        auto it = std::ranges::find(window_list, window);
-        // This FAILS if try to focus before add_window().
-        assert(it != window_list.cend());
-        window_list.focus(it);
-    }
+    auto& workspace = window.root<Workspace>();
+    workspace.focus_window(window);
 }
 
-void remove_window(Window_list& window_list, Window& window)
+void move_to_workspace(Window& window, Workspace& workspace)
 {
-    auto it = std::ranges::find(window_list, window);
-    assert(it != window_list.cend());
-    window_list.remove(it);
-}
+    assert_debug(window.placement_mode() != Window::Placement_mode::Sticky, "Sticky window should not be added to workspace.");
 
-void move_to_workspace(Window &window, Workspace &workspace)
-{
     logger::debug("Placing window {:x} to workspace {}", window.index(), workspace.index());
-
+    bool mapped = window.parent().has_value();
     // Remove existing parent before moving.
-    if (window.parent()) purge_and_reconfigure(window);
-
-    // Meaning its only has floating layout container.
-    if (workspace.size() == 1) {
-        // By default it's a horizontal container
-        // Maybe i will add a config to change default container
-        Layout *con = new Layout(Layout::Containment_type::Horizontal);
-        con->add(window);
-        workspace.add(*con);
-        workspace.update_rect();
-    } else {
-        // This must exist, if not, then there's no focused window on workspace
-        // While there's one. This is not permissible.
-        assert(!workspace.window_list().empty());
-        auto &current_win = workspace.window_list().current();
-
-        // Don't add window to focus list before calling this function.
-        assert(current_win != window);
-        assert(current_win.parent());
-        if (auto lm = current_win.layout_mark()) {
-            move_to_marked_window(window, lm.value());
-        } else {
-            auto &parent = current_win.parent()->get();
-            auto current_it = std::ranges::find(parent, current_win);
-            parent.insert(std::ranges::next(current_it), window);
-            parent.update_rect();
-        }
+    if (mapped) {
+        auto& last_workspace = window.root<Workspace>();
+        // Last workspace should not be the same as current workspace.
+        if (last_workspace == workspace) return;
+        last_workspace.remove_window(window);
+        purge_and_reconfigure(window);
     }
+
+    switch(window.placement_mode()) {
+    case Window::Placement_mode::Floating:
+    {
+        auto& floating_layout = workspace.floating_layout();
+        floating_layout.add_child(window);
+        break;
+    }
+    case Window::Placement_mode::Tiling:
+    {
+        // Meaning its only has floating layout container.
+        if (workspace.size() == 1) {
+            // By default it's a horizontal container
+            // Maybe i will add a config to change default container
+            auto *con = new Layout(Layout::Containment_type::Horizontal);
+            con->add_child(window);
+            workspace.add_child(*con);
+            workspace.update_rect();
+        } else {
+            auto &current_window = workspace.current_window();
+
+            // Don't add window to focus list before calling this function.
+            assert(current_window != window);
+            if (auto lm = current_window.layout_mark()) {
+                move_to_marked_window(window, lm.value());
+            } else {
+                auto &parent = current_window.parent()->get();
+                auto it      = std::ranges::find(parent, current_window);
+                parent.insert_child(std::ranges::next(it), window);
+                parent.update_rect();
+            }
+        }
+        break;
+    }
+    default: std::unreachable();
+    }
+
+    workspace.add_window(window);
 }
 
-void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark)
+void move_to_marked_window(Window& window, Window::Layout_mark& layout_mark)
 {
     if (window.parent()) purge_and_reconfigure(window);
 
@@ -208,53 +170,68 @@ void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark)
     // If parent has one child, just change the type of layout.
     if (parent.size() > 1) {
         auto* layout = new Layout(mark);
-        parent.insert(std::ranges::find(parent, marked_window), *layout);
-        parent.remove(marked_window);
-        layout->add(marked_window);
-        layout->add(window);
+        parent.insert_child(std::ranges::find(parent, marked_window), *layout);
+        parent.remove_child(marked_window);
+        layout->add_child(marked_window);
+        layout->add_child(window);
         parent.update_rect();
     } else {
-        parent.add(window);
+        parent.add_child(window);
         parent.type(mark);
     }
 }
 
-void purge_and_reconfigure(Window &window)
-{
-    assert(window.parent());
-    auto &parent = window.parent()->get();
-    parent.remove(window);
-
-    if (parent.empty()) {
-        assert(parent.parent());
-        auto &gparent = parent.parent()->get();
-
-        gparent.remove(parent);
-        delete &parent;
-
-        gparent.update_rect();
-
-    } else if (!purge_sole_node(parent))
-        parent.update_rect();
-}
-
-bool purge_sole_node(Node<Container> &node)
+// returns false if fails.
+static bool _purge_sole_node(Node<Container>& node)
 {
     assert(node.parent());
-    auto &parent = node.parent()->get();
+    auto& parent = node.parent()->get();
 
     // If node has one child, move its child into its parent.
     if ((node.size() == 1) && (!node.back().is_leaf() || !parent.is_root())) {
-        Node<Container> &back = node.back();
-        node.erase(node.begin());
+        Node<Container>& back = node.back();
+        node.erase_child(node.begin());
         // Iterator invalidation, so search twice.
-        parent.insert(std::ranges::find(parent, node), back);
-        parent.erase(std::ranges::find(parent, node));
+        parent.insert_child(std::ranges::find(parent, node), back);
+        parent.erase_child(std::ranges::find(parent, node));
         delete &node;
 
         parent.update_rect();
     } else return false;
     return true;
+}
+
+void move_to_layout(Window& window, Layout& layout)
+{
+    move_to_layout(window, layout, layout.cend());
+}
+
+void move_to_layout(Window& window, Layout& layout, Layout::const_iterator pos)
+{
+    auto& parent = window.parent_unsafe();
+    parent.remove_child(window);
+    layout.insert_child(pos, window);
+    _purge_sole_node(parent);
+    layout.parent_unsafe().update_rect();
+}
+
+void purge_and_reconfigure(Window& window)
+{
+    assert(window.parent());
+    auto& parent = window.parent()->get();
+    parent.remove_child(window);
+
+    if (parent.empty()) {
+        assert(parent.parent());
+        auto& gparent = parent.parent()->get();
+
+        gparent.remove_child(parent);
+        delete &parent;
+
+        gparent.update_rect();
+
+    } else if (!_purge_sole_node(parent))
+        parent.update_rect();
 }
 
 } // namespace window

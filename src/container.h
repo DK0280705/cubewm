@@ -12,7 +12,7 @@
 class Container
 {
     Vector2D _rect;
-    bool     _focused;
+    bool     _focused{};
 
 protected: // To avoid ambiguous name.
     virtual void _update_rect_fn()  noexcept = 0;

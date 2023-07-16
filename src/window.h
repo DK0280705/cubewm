@@ -10,27 +10,7 @@
 #include <concepts>
 #include <vector>
 
-class Window;
 class Workspace;
-
-class Window_list
-{
-    std::vector<Window*> _list;
-
-public:
-    inline auto current() const noexcept -> Window&
-    { return *_list.back(); }
-
-    inline bool empty() const noexcept
-    { return _list.empty(); }
-
-    HELPER_POINTER_ITERATOR_WRAPPER(_list);
-
-    public:
-    void add(Window& window);
-    void focus(const_iterator it);
-    void remove(const_iterator it);
-};
 
 class Window final : public Leaf<Container>
                    , public Managed<unsigned int>
@@ -81,9 +61,12 @@ public:
         Impl() = default;
 
     public:
-        virtual void update_rect()              noexcept = 0;
-        virtual void update_focus()             noexcept = 0;
+        virtual void update_rect()               noexcept = 0;
+        virtual void update_focus()              noexcept = 0;
         virtual void update_state(Window::State) noexcept = 0;
+
+        virtual void kill() noexcept = 0;
+
         virtual ~Impl() noexcept = default;
     };
 
@@ -148,11 +131,11 @@ public:
     /**
      * @brief Same as normalize(), but tiling.
      */
-     void set_tiling() noexcept;
+    void set_tiling() noexcept;
      /**
       * @brief Same as normalize(), but floating.
       */
-     void set_floating() noexcept;
+    void set_floating() noexcept;
 
     /**
      * @brief Set window minimized.
@@ -165,47 +148,21 @@ public:
      */
     void maximize() noexcept;
 
+    /**
+     * @brief Kill window
+     */
+    void kill() noexcept;
+
     ~Window() noexcept override;
 };
 
 namespace window {
-/**
- * @brief Add window to window list.
- * Performs additional debug checks
- * @param window_list
- * @param window
- */
-void add_window(Window_list &window_list, Window &window);
 
 /**
- * @brief Focus a window from window list.
- * Performs additional debug checks
- * @param window_list
+ * @brief Try to focus a window from its workspace.
  * @param window
  */
-void focus_window(Window_list &window_list, Window &window);
-
-/**
- * @brief Focus last window in a window list.
- * Do nothing if it's empty.
- * @param window_list
- */
-void focus_last(Window_list &window_list);
-
-/**
- * @brief Try to focus a window from its window list.
- * Performs additional debug checks
- * @param window
- */
-void try_focus_window(Window &window);
-
-/**
- * @brief Remove window from window list.
- * Performs additional debug checks
- * @param window_list
- * @param window
- */
-void remove_window(Window_list &window_list, Window &window);
+void try_focus_window(Window& window);
 
 /**
  * @brief Move window to workspace.
@@ -213,7 +170,7 @@ void remove_window(Window_list &window_list, Window &window);
  * @param window
  * @param workspace
  */
-void move_to_workspace(Window &window, Workspace &workspace);
+void move_to_workspace(Window& window, Workspace& workspace);
 
 /**
  * @brief Move window to a new container with a marked window.
@@ -221,7 +178,22 @@ void move_to_workspace(Window &window, Workspace &workspace);
  * @param window
  * @param layout_mark Layout mark from window.layout_mark()
  */
-void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark);
+void move_to_marked_window(Window& window, Window::Layout_mark& layout_mark);
+
+/**
+ * @brief Move window to another layout.
+ * @param window
+ * @param layout
+ */
+void move_to_layout(Window& window, Layout& layout);
+
+/**
+ * @brief Move window to another layout with specific position.
+ * @param window
+ * @param layout
+ * @param pos
+ */
+void move_to_layout(Window& window, Layout& layout, Layout::const_iterator pos);
 
 
 /**
@@ -230,8 +202,4 @@ void move_to_marked_window(Window &window, Window::Layout_mark &layout_mark);
  * @param window
  */
 void purge_and_reconfigure(Window &window);
-
-// TODO: DELETE THIS
-// Find a better way to hide implementation.
-bool purge_sole_node(Node<Container> &node);
 } // namespace window
