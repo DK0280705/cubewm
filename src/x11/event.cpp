@@ -187,8 +187,10 @@ void _on_focus_in(State& state, const xcb_focus_in_event_t& event)
     // Update focus if root window received focus in
     if (event.event == root_window_id(state.conn())) {
         logger::debug("Focus in -> got root window id");
-        auto& current_window = state.current_workspace().current_window();
-        state.current_workspace().focus_window(current_window);
+        if (state.current_workspace().has_window()) {
+            auto& current_window = state.current_workspace().current_window();
+            state.current_workspace().focus_window(current_window);
+        }
     } else if (const auto& winref = win_mgr[event.event]) {
         logger::debug("Focus in -> trying to focus window id: {:#x}", winref->get().index());
         ::window::try_focus_window(winref->get());

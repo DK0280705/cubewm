@@ -20,9 +20,9 @@ auto Server::init(::Connection& conn) -> Server&
 {
     // Init X11 first, so we can call the xcb functions.
     X11::init(conn);
+    X11::XKB::init(conn);
     auto& server = Init_once<X11::Server>::init(conn);
     auto& state  = server._state;
-    X11::XKB::init(conn);
 
     window::grab_keys(X11::root_window_id(state.conn()), state);
 

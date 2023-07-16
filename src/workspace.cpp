@@ -15,8 +15,8 @@ void Workspace::_Window_list::add(Window& window) noexcept
 void Workspace::_Window_list::focus(const_iterator it) noexcept
 {
     assert(!empty());
-    if (_list.back()->focused())
-        _list.back()->unfocus();
+    if (current().focused())
+        current().unfocus();
 
     Window& window = *it;
     _list.erase(it);
